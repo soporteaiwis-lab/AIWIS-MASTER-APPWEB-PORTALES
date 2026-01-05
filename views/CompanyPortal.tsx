@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CompanyPortal, User, UserRole, Lesson } from '../types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -59,33 +59,60 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   const isMaster = currentUser.role === UserRole.MASTER;
   const primaryColor = company.themeColor;
 
+  // Safety check: if activePhase is out of bounds (e.g. after deletion), reset to 0
+  useEffect(() => {
+    if (activePhase >= company.phases.length && company.phases.length > 0) {
+      setActivePhase(0);
+    }
+  }, [company.phases.length, activePhase]);
+
+  // Safety check: if activeWeek is out of bounds (e.g. after deletion), reset to 0
+  useEffect(() => {
+    const currentP = company.phases[activePhase];
+    if (currentP && activeWeek >= currentP.modules.length && currentP.modules.length > 0) {
+      setActiveWeek(0);
+    }
+  }, [company.phases, activePhase, activeWeek]);
+
   const currentPhase = company.phases[activePhase];
   const currentModule = currentPhase?.modules[activeWeek];
 
   // --- Handlers ---
 
   const handleAddPhaseClick = () => {
-    // Force prompt in browser
-    setTimeout(() => {
-        const title = prompt('Nombre de la nueva fase (Ej: Fase 2: Avanzado):');
-        if(title && title.trim().length > 0) {
-            onAddPhase(company.id, title);
-        }
-    }, 50);
+    const title = prompt('Nombre de la nueva fase (Ej: Fase 2: Avanzado):');
+    if(title && title.trim().length > 0) {
+        onAddPhase(company.id, title);
+        // Automatically select the new phase (optional, but good UX)
+        // logic handled by react update, user can click.
+    }
   };
 
   const handleAddModuleClick = () => {
     if (!currentPhase) {
-        alert("Primero debes crear una Fase.");
+        alert("Primero debes crear o seleccionar una Fase.");
         return;
     }
-    // Force prompt
-    setTimeout(() => {
-        const title = prompt('Nombre del nuevo módulo (Ej: Semana 1: Intro):');
-        if(title && title.trim().length > 0) {
-            onAddModule(company.id, currentPhase.id, title);
-        }
-    }, 50);
+    const title = prompt(`Nombre del nuevo módulo para "${currentPhase.title}" (Ej: Semana 1):`);
+    if(title && title.trim().length > 0) {
+        onAddModule(company.id, currentPhase.id, title);
+    }
+  };
+
+  const handleDeletePhaseClick = (e: React.MouseEvent, phaseId: string) => {
+    e.stopPropagation();
+    if(window.confirm('¿Estás seguro de eliminar esta fase y todo su contenido?')) {
+      onDeletePhase(company.id, phaseId);
+    }
+  };
+
+  const handleDeleteModuleClick = (e: React.MouseEvent, moduleId: string) => {
+    e.stopPropagation();
+    if(window.confirm('¿Eliminar este módulo y sus clases?')) {
+      if (currentPhase) {
+        onDeleteModule(company.id, currentPhase.id, moduleId);
+      }
+    }
   };
 
   const handleOpenLesson = (lesson: Lesson) => {
@@ -238,7 +265,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
 
         {/* Phase Selector */}
         <div className="space-y-4">
-          <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-hide items-center">
+          <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-hide items-center min-h-[60px]">
              {company.phases.map((phase, idx) => (
                 <div key={phase.id} className="relative group shrink-0">
                   <button
@@ -255,10 +282,11 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                   </button>
                   {isMaster && (
                     <button 
-                       onClick={(e) => { e.stopPropagation(); if(window.confirm('Eliminar Fase?')) onDeletePhase(company.id, phase.id); }}
-                       className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
+                       onClick={(e) => handleDeletePhaseClick(e, phase.id)}
+                       className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10 hover:bg-red-600"
+                       title="Eliminar Fase"
                     >
-                       <X size={10} />
+                       <X size={12} />
                     </button>
                   )}
                 </div>
@@ -276,7 +304,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
 
         {/* Weeks/Modules */}
         {(company.phases.length > 0 || isMaster) && (
-           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide items-center border-b border-slate-800/50 min-h-[50px]">
+           <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide items-center border-b border-slate-800/50 min-h-[60px]">
               {currentPhase?.modules.map((module, idx) => (
                 <div key={module.id} className="relative group shrink-0">
                   <button
@@ -291,15 +319,16 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                   </button>
                   {isMaster && (
                     <button 
-                       onClick={(e) => { e.stopPropagation(); if(window.confirm('Eliminar Módulo?')) onDeleteModule(company.id, currentPhase.id, module.id); }}
-                       className="absolute -top-2 -right-1 bg-slate-700 text-red-400 p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                       onClick={(e) => handleDeleteModuleClick(e, module.id)}
+                       className="absolute -top-2 -right-1 bg-slate-700 text-red-400 p-0.5 rounded-full opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-slate-600 hover:text-red-300"
+                       title="Eliminar Módulo"
                     >
-                       <X size={10} />
+                       <X size={12} />
                     </button>
                   )}
                 </div>
               ))}
-              {isMaster && company.phases.length > 0 && (
+              {isMaster && company.phases.length > 0 && currentPhase && (
                 <button 
                   onClick={handleAddModuleClick}
                   className="whitespace-nowrap px-3 py-1 rounded-lg text-xs border border-dashed border-slate-700 text-slate-500 hover:text-white hover:border-slate-500 flex items-center gap-1 shrink-0 ml-2"

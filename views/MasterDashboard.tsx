@@ -140,7 +140,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
   );
 
   const DatabaseView = () => (
-    <div className="space-y-8 animate-fade-in">
+    <div className="space-y-8 animate-fade-in pb-10">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-3">
           <Database className="text-emerald-500" /> Base de Datos Maestra
@@ -159,10 +159,10 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-250px)]">
         {/* User Table */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden h-fit">
-          <div className="bg-slate-800/50 p-4 border-b border-slate-700 flex justify-between items-center">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col h-full">
+          <div className="bg-slate-800/50 p-4 border-b border-slate-700 flex justify-between items-center shrink-0">
             <h3 className="font-bold text-slate-200 flex items-center gap-2">
               <Users size={18} /> Usuarios Registrados
             </h3>
@@ -170,9 +170,9 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
               Total: {companies.reduce((acc, c) => acc + c.users.length, 0)}
             </span>
           </div>
-          <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
+          <div className="overflow-auto custom-scrollbar flex-1">
             <table className="w-full text-sm text-left text-slate-400">
-              <thead className="text-xs text-slate-300 uppercase bg-slate-800/30">
+              <thead className="text-xs text-slate-300 uppercase bg-slate-800/30 sticky top-0 backdrop-blur-md">
                 <tr>
                   <th className="px-6 py-3">Usuario</th>
                   <th className="px-6 py-3">Empresa</th>
@@ -212,7 +212,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
         </div>
 
         {/* Structure & Content Table */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col h-[700px]">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col h-full">
           <div className="bg-slate-800/50 p-4 border-b border-slate-700 flex justify-between items-center shrink-0">
             <h3 className="font-bold text-slate-200 flex items-center gap-2">
               <Layout size={18} /> Estructura y Contenidos
@@ -237,7 +237,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
                              <Layers size={14} />
                              {phase.title}
                            </div>
-                           <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                           <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                               <button 
                                 onClick={() => {
                                    const newTitle = prompt('Renombrar Fase:', phase.title);
@@ -266,7 +266,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
                                     <Box size={12} className="text-slate-500" />
                                     {module.title}
                                  </div>
-                                 <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                                 <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
                                     <button 
                                        onClick={() => {
                                           const newTitle = prompt('Renombrar Módulo:', module.title);
