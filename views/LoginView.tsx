@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserRole } from '../types';
 import { Button } from '../components/Button';
 import { Lock, Building2, UserCircle } from 'lucide-react';
@@ -13,6 +13,17 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, companies }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('');
+
+  // Pre-fill credentials for convenience when switching tabs
+  useEffect(() => {
+    if (activeTab === 'master') {
+      setUsername('aiwis');
+      setPassword('1234');
+    } else {
+      setUsername('');
+      setPassword('');
+    }
+  }, [activeTab]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

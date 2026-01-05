@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CompanyPortal, User, UserRole, AppState, Lesson } from './types';
+import { CompanyPortal, User, UserRole, AppState, Lesson, Phase, WeekModule } from './types';
 import { INITIAL_COMPANIES, MASTER_USER } from './services/data';
 import { LoginView } from './views/LoginView';
 import { MasterDashboard } from './views/MasterDashboard';
@@ -15,8 +15,6 @@ const App: React.FC = () => {
 
   // Handle Login Logic
   const handleLogin = (u: string, p: string, isMaster: boolean, companySlug?: string) => {
-    // Simulated Authentication Logic
-    // Default pass is 1234 for everything per request
     if (p !== '1234') {
        alert('Contraseña incorrecta. (Use 1234)');
        return;
@@ -33,7 +31,6 @@ const App: React.FC = () => {
         alert('Usuario Master incorrecto (Prueba aiwis)');
       }
     } else {
-      // Client Login
       const company = companies.find(c => c.slug === companySlug);
       if (!company) {
         alert('Seleccione una empresa válida');
@@ -49,7 +46,6 @@ const App: React.FC = () => {
         progress: 0
       };
 
-      // If new user (not found), add them to state for this session
       if (!foundUser) {
         setCompanies(prev => prev.map(c => 
           c.id === company.id ? { ...c, users: [...c.users, userToLogin] } : c
@@ -66,7 +62,6 @@ const App: React.FC = () => {
 
   // --- ACTIONS ---
 
-  // Master creates a new company
   const handleCreateCompany = (name: string, color: string) => {
     const newCompany: CompanyPortal = {
       id: `c${Date.now()}`,
@@ -80,7 +75,6 @@ const App: React.FC = () => {
     setCompanies([...companies, newCompany]);
   };
 
-  // Master deletes a user
   const handleDeleteUser = (companyId: string, userId: string) => {
     setCompanies(prev => prev.map(c => {
        if (c.id !== companyId) return c;
@@ -91,7 +85,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // Master deletes a lesson (from DB view)
   const handleDeleteLesson = (companyId: string, phaseId: string, moduleId: string, lessonId: string) => {
     setCompanies(prev => prev.map(c => {
       if (c.id !== companyId) return c;
@@ -114,7 +107,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // Update Lesson Details (Video, Transciption, etc)
   const handleUpdateLesson = (companyId: string, phaseId: string, moduleId: string, updatedLesson: Lesson) => {
      setCompanies(prev => prev.map(c => {
        if (c.id !== companyId) return c;
@@ -137,17 +129,31 @@ const App: React.FC = () => {
      }));
   };
 
-  // Toggle Completion
+  const handleCreateLesson = (companyId: string, phaseId: string, moduleId: string, lesson: Lesson) => {
+    setCompanies(prev => prev.map(c => {
+      if (c.id !== companyId) return c;
+      return {
+        ...c,
+        phases: c.phases.map(p => {
+          if (p.id !== phaseId) return p;
+          return {
+            ...p,
+            modules: p.modules.map(m => {
+              if (m.id !== moduleId) return m;
+              return {
+                ...m,
+                lessons: [...m.lessons, lesson]
+              };
+            })
+          };
+        })
+      };
+    }));
+  };
+
   const handleToggleComplete = (companyId: string, phaseId: string, moduleId: string, lessonId: string) => {
     setCompanies(prev => prev.map(c => {
       if (c.id !== companyId) return c;
-      
-      // Also update current user progress if they are logged in this company? 
-      // Simplified: Just updating the lesson state in the data structure for now.
-      // In a real app, completion is per-user, here we are editing the "Company Template" 
-      // or assuming single-tenant per user for simplicity in this demo structure.
-      // To mimic "User saw this", we toggle the boolean on the lesson object itself for the session.
-      
       return {
         ...c,
         phases: c.phases.map(p => {
@@ -168,6 +174,70 @@ const App: React.FC = () => {
         })
       };
     }));
+  };
+
+  // --- HIERARCHY MANAGEMENT ---
+
+  const handleAddPhase = (companyId: string, title: string) => {
+    const newPhase: Phase = {
+      id: `p-${Date.now()}`,
+      title,
+      modules: []
+    };
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, phases: [...c.phases, newPhase] } : c));
+  };
+
+  const handleDeletePhase = (companyId: string, phaseId: string) => {
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, phases: c.phases.filter(p => p.id !== phaseId) } : c));
+  };
+
+  const handleUpdatePhase = (companyId: string, phaseId: string, title: string) => {
+    setCompanies(prev => prev.map(c => c.id === companyId ? { 
+        ...c, 
+        phases: c.phases.map(p => p.id === phaseId ? { ...p, title } : p)
+    } : c));
+  };
+
+  const handleAddModule = (companyId: string, phaseId: string, title: string) => {
+    const newModule: WeekModule = {
+      id: `m-${Date.now()}`,
+      title,
+      lessons: []
+    };
+    setCompanies(prev => prev.map(c => {
+      if (c.id !== companyId) return c;
+      return {
+        ...c,
+        phases: c.phases.map(p => p.id === phaseId ? { ...p, modules: [...p.modules, newModule] } : p)
+      };
+    }));
+  };
+
+  const handleDeleteModule = (companyId: string, phaseId: string, moduleId: string) => {
+    setCompanies(prev => prev.map(c => {
+      if (c.id !== companyId) return c;
+      return {
+        ...c,
+        phases: c.phases.map(p => p.id === phaseId ? { ...p, modules: p.modules.filter(m => m.id !== moduleId) } : p)
+      };
+    }));
+  };
+
+  const handleUpdateModule = (companyId: string, phaseId: string, moduleId: string, title: string) => {
+    setCompanies(prev => prev.map(c => {
+      if (c.id !== companyId) return c;
+      return {
+        ...c,
+        phases: c.phases.map(p => p.id === phaseId ? {
+             ...p, 
+             modules: p.modules.map(m => m.id === moduleId ? { ...m, title } : m)
+        } : p)
+      };
+    }));
+  };
+
+  const handleUpdateCompany = (companyId: string, data: Partial<CompanyPortal>) => {
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, ...data } : c));
   };
 
   // --- NAVIGATION ---
@@ -216,6 +286,10 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         onDeleteUser={handleDeleteUser}
         onDeleteLesson={handleDeleteLesson}
+        onUpdatePhase={handleUpdatePhase}
+        onUpdateModule={handleUpdateModule}
+        onDeletePhase={handleDeletePhase}
+        onDeleteModule={handleDeleteModule}
       />
     );
   }
@@ -231,7 +305,15 @@ const App: React.FC = () => {
         onLogout={handleLogout}
         onBackToMaster={appState.currentUser?.role === UserRole.MASTER ? handleBackToMaster : undefined}
         onUpdateLesson={handleUpdateLesson}
+        onCreateLesson={handleCreateLesson}
+        onDeleteLesson={handleDeleteLesson}
         onToggleComplete={handleToggleComplete}
+        // Hierarchy Props
+        onAddPhase={handleAddPhase}
+        onDeletePhase={handleDeletePhase}
+        onAddModule={handleAddModule}
+        onDeleteModule={handleDeleteModule}
+        onUpdateCompany={handleUpdateCompany}
       />
     );
   }

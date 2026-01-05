@@ -5,7 +5,7 @@ import { Card } from '../components/Card';
 import { Modal } from '../components/Modal';
 import { 
   PlayCircle, CheckCircle, Lock, BookOpen, Users, 
-  LayoutDashboard, LogOut, Settings, Plus, Github, MessageSquare, Edit3, Link as LinkIcon, FileText
+  LayoutDashboard, LogOut, Settings, Plus, Github, MessageSquare, Edit3, Link as LinkIcon, FileText, Menu, X, Trash2, Edit, Layers
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -15,7 +15,15 @@ interface CompanyPortalProps {
   onLogout: () => void;
   onBackToMaster?: () => void;
   onUpdateLesson: (companyId: string, phaseId: string, moduleId: string, lesson: Lesson) => void;
+  onCreateLesson: (companyId: string, phaseId: string, moduleId: string, lesson: Lesson) => void;
+  onDeleteLesson: (companyId: string, phaseId: string, moduleId: string, lessonId: string) => void;
   onToggleComplete: (companyId: string, phaseId: string, moduleId: string, lessonId: string) => void;
+  // Hierarchy & Config
+  onAddPhase: (companyId: string, title: string) => void;
+  onDeletePhase: (companyId: string, phaseId: string) => void;
+  onAddModule: (companyId: string, phaseId: string, title: string) => void;
+  onDeleteModule: (companyId: string, phaseId: string, moduleId: string) => void;
+  onUpdateCompany: (companyId: string, data: Partial<CompanyPortal>) => void;
 }
 
 export const CompanyPortalView: React.FC<CompanyPortalProps> = ({ 
@@ -24,16 +32,29 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   onLogout, 
   onBackToMaster,
   onUpdateLesson,
-  onToggleComplete
+  onCreateLesson,
+  onDeleteLesson,
+  onToggleComplete,
+  onAddPhase,
+  onDeletePhase,
+  onAddModule,
+  onDeleteModule,
+  onUpdateCompany
 }) => {
   const [activeTab, setActiveTab] = useState<'home' | 'students'>('home');
   const [activePhase, setActivePhase] = useState(0);
   const [activeWeek, setActiveWeek] = useState(0);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
-  // Lesson Player / Editor State
+  // Modals State
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [isCreating, setIsCreating] = useState(false); // Creating a new lesson
   const [editForm, setEditForm] = useState<Partial<Lesson>>({});
+  
+  // Config Modal State
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [configForm, setConfigForm] = useState({ name: company.name, themeColor: company.themeColor });
 
   const isMaster = currentUser.role === UserRole.MASTER;
   const primaryColor = company.themeColor;
@@ -41,23 +62,92 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   const currentPhase = company.phases[activePhase];
   const currentModule = currentPhase?.modules[activeWeek];
 
+  // --- Handlers ---
+
+  const handleAddPhaseClick = () => {
+    // Force prompt in browser
+    setTimeout(() => {
+        const title = prompt('Nombre de la nueva fase (Ej: Fase 2: Avanzado):');
+        if(title && title.trim().length > 0) {
+            onAddPhase(company.id, title);
+        }
+    }, 50);
+  };
+
+  const handleAddModuleClick = () => {
+    if (!currentPhase) {
+        alert("Primero debes crear una Fase.");
+        return;
+    }
+    // Force prompt
+    setTimeout(() => {
+        const title = prompt('Nombre del nuevo módulo (Ej: Semana 1: Intro):');
+        if(title && title.trim().length > 0) {
+            onAddModule(company.id, currentPhase.id, title);
+        }
+    }, 50);
+  };
+
   const handleOpenLesson = (lesson: Lesson) => {
     setSelectedLesson(lesson);
     setIsEditing(false);
+    setIsCreating(false);
   };
 
   const handleEditLesson = (lesson: Lesson) => {
     setEditForm(lesson);
     setIsEditing(true);
-    setSelectedLesson(lesson); // Ensure modal is open
+    setIsCreating(false);
+    setSelectedLesson(lesson);
+  };
+
+  const handleCreateLessonStart = () => {
+    setEditForm({
+      title: '', description: '', duration: '0m', videoUrl: '', transcription: '', quizUrl: ''
+    });
+    setIsCreating(true);
+    setIsEditing(true);
+    setSelectedLesson({ id: 'temp', title: 'Nueva Clase', description: '', thumbnail: 'https://picsum.photos/seed/new/400/225', duration: '', completed: false } as Lesson);
   };
 
   const handleSaveLesson = () => {
-    if (selectedLesson && currentPhase && currentModule && editForm.id) {
+    if (!currentPhase || !currentModule) return;
+
+    if (isCreating && editForm.title) {
+      const newLesson: Lesson = {
+        id: `l-${Date.now()}`,
+        title: editForm.title,
+        description: editForm.description || '',
+        thumbnail: `https://picsum.photos/seed/${Date.now()}/400/225`,
+        duration: editForm.duration || '0m',
+        completed: false,
+        videoUrl: editForm.videoUrl,
+        transcription: editForm.transcription,
+        quizUrl: editForm.quizUrl
+      };
+      onCreateLesson(company.id, currentPhase.id, currentModule.id, newLesson);
+      setIsCreating(false);
+      setIsEditing(false);
+      setSelectedLesson(null);
+    } else if (selectedLesson && editForm.id) {
       onUpdateLesson(company.id, currentPhase.id, currentModule.id, { ...selectedLesson, ...editForm } as Lesson);
       setIsEditing(false);
       setSelectedLesson({ ...selectedLesson, ...editForm } as Lesson);
     }
+  };
+
+  const handleDeleteCurrentLesson = () => {
+    if (selectedLesson && currentPhase && currentModule) {
+      if(window.confirm('¿Borrar esta clase permanentemente?')) {
+        onDeleteLesson(company.id, currentPhase.id, currentModule.id, selectedLesson.id);
+        setSelectedLesson(null);
+      }
+    }
+  };
+
+  const handleSaveConfig = () => {
+    onUpdateCompany(company.id, configForm);
+    setShowConfigModal(false);
   };
 
   // Helper to extract YouTube ID
@@ -67,15 +157,15 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
         const id = url.split('v=')[1]?.split('&')[0] || url.split('/').pop();
         return `https://www.youtube.com/embed/${id}`;
      }
-     return url; // Assume it's embeddable or link
+     return url;
   };
 
-  // -- Component: Sidebar --
-  const Sidebar = () => (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col hidden md:flex">
+  // -- Component: Sidebar Content --
+  const SidebarContent = () => (
+    <>
       <div className="h-16 flex items-center px-6 border-b border-slate-800">
          <div 
-            className="w-8 h-8 rounded mr-3 flex items-center justify-center font-bold text-white shadow-lg"
+            className="w-8 h-8 rounded mr-3 flex items-center justify-center font-bold text-white shadow-lg transition-colors duration-500"
             style={{ backgroundColor: primaryColor }}
          >
            {company.name.charAt(0)}
@@ -85,14 +175,14 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
 
       <nav className="flex-1 p-4 space-y-2">
         <button 
-          onClick={() => setActiveTab('home')}
+          onClick={() => { setActiveTab('home'); setIsMobileMenuOpen(false); }}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'home' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}
         >
           <LayoutDashboard size={20} style={{ color: activeTab === 'home' ? primaryColor : undefined }} />
           Aula Virtual
         </button>
         <button 
-          onClick={() => setActiveTab('students')}
+          onClick={() => { setActiveTab('students'); setIsMobileMenuOpen(false); }}
           className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${activeTab === 'students' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}
         >
           <Users size={20} style={{ color: activeTab === 'students' ? primaryColor : undefined }} />
@@ -114,13 +204,13 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
           <LogOut size={16} className="mr-2" /> Salir
         </Button>
       </div>
-    </aside>
+    </>
   );
 
   // -- View: Dashboard / Classes --
   const DashboardView = () => {
     return (
-      <div className="space-y-8 animate-fade-in">
+      <div className="space-y-8 animate-fade-in pb-20 md:pb-0">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -131,122 +221,170 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
           </div>
           
           {isMaster && (
-            <div className="flex gap-2">
-              <span className="bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded-full text-xs font-bold border border-yellow-500/20 flex items-center gap-2">
-                <Settings size={14} /> MODO EDITOR
-              </span>
-              <Button variant="secondary" onClick={onBackToMaster}>Volver a Master</Button>
+            <div className="flex flex-wrap gap-2 w-full md:w-auto">
+              <Button 
+                variant="secondary" 
+                onClick={() => { setConfigForm({ name: company.name, themeColor: company.themeColor }); setShowConfigModal(true); }}
+                className="text-xs md:text-sm"
+              >
+                 <Settings size={14} className="mr-2" /> Configurar Portal
+              </Button>
+              <Button variant="secondary" onClick={onBackToMaster} className="text-xs md:text-sm">
+                 Volver a Master
+              </Button>
             </div>
           )}
         </div>
 
         {/* Phase Selector */}
-        {company.phases.length > 0 ? (
-          <>
-            <div className="flex flex-wrap gap-4">
-              {company.phases.map((phase, idx) => (
-                <button
-                  key={phase.id}
-                  onClick={() => { setActivePhase(idx); setActiveWeek(0); }}
-                  className={`px-6 py-3 rounded-xl font-semibold transition-all shadow-lg ${
-                    activePhase === idx 
-                      ? 'text-white scale-105' 
-                      : 'bg-slate-900 text-slate-400 border border-slate-800 hover:bg-slate-800'
-                  }`}
-                  style={{ backgroundColor: activePhase === idx ? primaryColor : undefined }}
-                >
-                  {phase.title}
-                </button>
+        <div className="space-y-4">
+          <div className="flex overflow-x-auto gap-4 pb-2 scrollbar-hide items-center">
+             {company.phases.map((phase, idx) => (
+                <div key={phase.id} className="relative group shrink-0">
+                  <button
+                    onClick={() => { setActivePhase(idx); setActiveWeek(0); }}
+                    className={`px-6 py-3 rounded-xl font-semibold transition-all shadow-lg whitespace-nowrap flex items-center gap-2 ${
+                      activePhase === idx 
+                        ? 'text-white scale-105' 
+                        : 'bg-slate-900 text-slate-400 border border-slate-800 hover:bg-slate-800'
+                    }`}
+                    style={{ backgroundColor: activePhase === idx ? primaryColor : undefined }}
+                  >
+                    <Layers size={16} />
+                    {phase.title}
+                  </button>
+                  {isMaster && (
+                    <button 
+                       onClick={(e) => { e.stopPropagation(); if(window.confirm('Eliminar Fase?')) onDeletePhase(company.id, phase.id); }}
+                       className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm z-10"
+                    >
+                       <X size={10} />
+                    </button>
+                  )}
+                </div>
               ))}
               {isMaster && (
-                <button className="px-4 py-3 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:text-white hover:border-slate-500 flex items-center">
-                  <Plus size={18} />
+                <button 
+                  onClick={handleAddPhaseClick}
+                  className="px-4 py-3 rounded-xl border border-dashed border-slate-700 text-slate-500 hover:text-white hover:border-slate-500 flex items-center shrink-0 transition-colors"
+                >
+                  <Plus size={18} className="mr-2"/> Nueva Fase
+                </button>
+              )}
+          </div>
+        </div>
+
+        {/* Weeks/Modules */}
+        {(company.phases.length > 0 || isMaster) && (
+           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide items-center border-b border-slate-800/50 min-h-[50px]">
+              {currentPhase?.modules.map((module, idx) => (
+                <div key={module.id} className="relative group shrink-0">
+                  <button
+                    onClick={() => setActiveWeek(idx)}
+                    className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeWeek === idx 
+                        ? 'bg-slate-800 text-white border border-slate-700' 
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    {module.title}
+                  </button>
+                  {isMaster && (
+                    <button 
+                       onClick={(e) => { e.stopPropagation(); if(window.confirm('Eliminar Módulo?')) onDeleteModule(company.id, currentPhase.id, module.id); }}
+                       className="absolute -top-2 -right-1 bg-slate-700 text-red-400 p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    >
+                       <X size={10} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {isMaster && company.phases.length > 0 && (
+                <button 
+                  onClick={handleAddModuleClick}
+                  className="whitespace-nowrap px-3 py-1 rounded-lg text-xs border border-dashed border-slate-700 text-slate-500 hover:text-white hover:border-slate-500 flex items-center gap-1 shrink-0 ml-2"
+                >
+                   <Plus size={12} /> Nuevo Módulo
                 </button>
               )}
             </div>
+        )}
 
-            {/* Weeks/Modules */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-              {currentPhase?.modules.map((module, idx) => (
-                <button
-                  key={module.id}
-                  onClick={() => setActiveWeek(idx)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeWeek === idx 
-                      ? 'bg-slate-800 text-white border border-slate-700' 
-                      : 'text-slate-500 hover:text-slate-300'
-                  }`}
+        {/* Content Grid */}
+        {currentModule ? (
+          <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
+            <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-white">
+              <BookOpen size={20} style={{ color: primaryColor }} /> 
+              {currentModule.title}
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {currentModule.lessons.map(lesson => (
+                <div 
+                  key={lesson.id} 
+                  className="group bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 relative"
                 >
-                  {module.title}
-                </button>
-              ))}
-            </div>
-
-            {/* Content Grid */}
-            {currentModule ? (
-              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6">
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <BookOpen size={20} style={{ color: primaryColor }} /> 
-                  {currentModule.title}
-                </h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {currentModule.lessons.map(lesson => (
-                    <div 
-                      key={lesson.id} 
-                      className="group bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:shadow-2xl hover:shadow-indigo-500/10 transition-all duration-300 relative"
-                    >
-                      <div className="relative aspect-video bg-slate-950 cursor-pointer" onClick={() => handleOpenLesson(lesson)}>
-                        <img src={lesson.thumbnail} alt={lesson.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <div className="w-12 h-12 rounded-full bg-slate-900/80 backdrop-blur-sm flex items-center justify-center text-white group-hover:scale-110 transition-transform">
-                             <PlayCircle size={32} style={{ color: primaryColor }} />
-                          </div>
-                        </div>
-                        {lesson.completed && (
-                          <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
-                            <CheckCircle size={12} /> Visto
-                          </div>
-                        )}
-                        <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                          {lesson.duration}
-                        </span>
-                      </div>
-                      <div className="p-4">
-                        <div className="flex justify-between items-start">
-                           <h3 className="font-bold text-white mb-1 group-hover:text-indigo-400 transition-colors line-clamp-1">{lesson.title}</h3>
-                           {isMaster && (
-                             <button 
-                               onClick={(e) => { e.stopPropagation(); handleEditLesson(lesson); }}
-                               className="text-slate-500 hover:text-white p-1"
-                             >
-                               <Edit3 size={14} />
-                             </button>
-                           )}
-                        </div>
-                        <p className="text-sm text-slate-400 line-clamp-2">{lesson.description}</p>
+                  <div className="relative aspect-video bg-slate-950 cursor-pointer" onClick={() => handleOpenLesson(lesson)}>
+                    <img src={lesson.thumbnail} alt={lesson.title} className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-slate-900/80 backdrop-blur-sm flex items-center justify-center text-white group-hover:scale-110 transition-transform">
+                         <PlayCircle size={32} style={{ color: primaryColor }} />
                       </div>
                     </div>
-                  ))}
-                  {isMaster && (
-                     <div className="border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-6 text-slate-500 hover:text-white hover:border-slate-600 cursor-pointer min-h-[200px]">
-                        <Plus size={32} />
-                        <span className="text-sm font-medium mt-2">Agregar Clase</span>
-                     </div>
-                  )}
+                    {lesson.completed && (
+                      <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                        <CheckCircle size={12} /> Visto
+                      </div>
+                    )}
+                    <span className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                      {lesson.duration}
+                    </span>
+                  </div>
+                  <div className="p-4">
+                    <div className="flex justify-between items-start">
+                       <h3 className="font-bold text-white mb-1 group-hover:text-indigo-400 transition-colors line-clamp-1">{lesson.title}</h3>
+                       {isMaster && (
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); handleEditLesson(lesson); }}
+                           className="text-slate-500 hover:text-white p-1"
+                         >
+                           <Edit3 size={14} />
+                         </button>
+                       )}
+                    </div>
+                    <p className="text-sm text-slate-400 line-clamp-2">{lesson.description}</p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="text-center py-20 text-slate-500">
-                <p>No hay módulos creados para esta fase.</p>
-                {isMaster && <Button className="mt-4" variant="secondary">Crear Módulo</Button>}
-              </div>
-            )}
-          </>
+              ))}
+              {isMaster && (
+                 <div 
+                    onClick={handleCreateLessonStart}
+                    className="border-2 border-dashed border-slate-800 rounded-xl flex flex-col items-center justify-center p-6 text-slate-500 hover:text-white hover:border-slate-600 cursor-pointer min-h-[200px]"
+                 >
+                    <Plus size={32} />
+                    <span className="text-sm font-medium mt-2">Agregar Clase</span>
+                 </div>
+              )}
+            </div>
+          </div>
         ) : (
-          <div className="text-center py-20">
-             <h2 className="text-xl text-slate-400">Portal en construcción</h2>
-             {isMaster && <Button className="mt-4">Inicializar Fases</Button>}
+          <div className="text-center py-20 text-slate-500">
+             {company.phases.length > 0 ? (
+                <>
+                   <p>Selecciona una fase y módulo para ver el contenido.</p>
+                   {isMaster && company.phases.length > 0 && !currentPhase?.modules.length && (
+                       <div className="mt-4 flex flex-col items-center gap-2">
+                           <p className="text-sm text-indigo-400">Esta fase no tiene módulos.</p>
+                           <Button variant="secondary" onClick={handleAddModuleClick}><Plus size={16} /> Crear Primer Módulo</Button>
+                       </div>
+                   )}
+                </>
+             ) : (
+                <div className="flex flex-col items-center">
+                   <p className="mb-4">Portal vacío.</p>
+                   {isMaster && <Button onClick={handleAddPhaseClick}><Plus size={16} /> Crear Primera Fase</Button>}
+                </div>
+             )}
           </div>
         )}
       </div>
@@ -262,7 +400,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
     }));
 
     return (
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-6 animate-fade-in pb-20 md:pb-0">
         <h1 className="text-2xl font-bold text-white mb-6">Comunidad {company.name}</h1>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -336,16 +474,48 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col md:flex-row">
-      <Sidebar />
+    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col md:flex-row overflow-hidden relative">
+      
+      {/* Desktop Sidebar */}
+      <div className="hidden md:flex md:flex-col md:w-64 bg-slate-900 border-r border-slate-800 h-screen">
+         <SidebarContent />
+      </div>
+
+      {/* Mobile Sidebar (Overlay) */}
+      <div 
+         className={`fixed inset-0 z-50 bg-black/80 backdrop-blur-sm transition-opacity duration-300 md:hidden ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} 
+         onClick={() => setIsMobileMenuOpen(false)}
+      >
+         <div 
+            className={`w-64 h-full bg-slate-900 border-r border-slate-800 transform transition-transform duration-300 flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+            onClick={e => e.stopPropagation()}
+         >
+            <div className="flex justify-end p-4">
+               <button onClick={() => setIsMobileMenuOpen(false)} className="text-slate-400">
+                  <X size={24} />
+               </button>
+            </div>
+            <SidebarContent />
+         </div>
+      </div>
       
       {/* Mobile Header */}
-      <header className="md:hidden bg-slate-900 p-4 border-b border-slate-800 flex justify-between items-center">
-         <div className="font-bold text-white">{company.name}</div>
-         <Button variant="ghost" onClick={onLogout}><LogOut size={20} /></Button>
+      <header className="md:hidden bg-slate-900 p-4 border-b border-slate-800 flex justify-between items-center z-40 sticky top-0">
+         <div className="flex items-center gap-3">
+             <button onClick={() => setIsMobileMenuOpen(true)} className="text-slate-200">
+                <Menu size={24} />
+             </button>
+             <span className="font-bold text-white">{company.name}</span>
+         </div>
+         <div 
+           className="w-6 h-6 rounded flex items-center justify-center font-bold text-white text-xs"
+           style={{ backgroundColor: primaryColor }}
+         >
+           {company.name.charAt(0)}
+         </div>
       </header>
 
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto h-screen scroll-smooth">
         <div className="max-w-7xl mx-auto">
           {activeTab === 'home' ? <DashboardView /> : <StudentView />}
         </div>
@@ -355,7 +525,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
       <Modal 
         isOpen={!!selectedLesson} 
         onClose={() => setSelectedLesson(null)} 
-        title={isEditing ? 'Editar Clase' : (selectedLesson?.title || 'Clase')}
+        title={isEditing ? (isCreating ? 'Nueva Clase' : 'Editar Clase') : (selectedLesson?.title || 'Clase')}
         maxWidth="max-w-4xl"
       >
         {selectedLesson && (
@@ -380,6 +550,15 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                    />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                   <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Duración (Ej: 45m)</label>
+                      <input 
+                          type="text" 
+                          value={editForm.duration || ''} 
+                          onChange={e => setEditForm({...editForm, duration: e.target.value})}
+                          className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500 outline-none"
+                      />
+                   </div>
                    <div>
                       <label className="block text-xs font-bold text-slate-500 mb-1 uppercase">Video URL (YouTube/Meet)</label>
                       <input 
@@ -410,9 +589,16 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                       className="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white focus:border-indigo-500 outline-none font-mono text-sm"
                    />
                 </div>
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                   <Button variant="secondary" onClick={() => setIsEditing(false)}>Cancelar</Button>
-                   <Button onClick={handleSaveLesson}>Guardar Cambios</Button>
+                <div className="flex justify-between pt-4 border-t border-slate-800">
+                   {!isCreating ? (
+                      <Button variant="danger" onClick={handleDeleteCurrentLesson} className="bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white">
+                         <Trash2 size={16} /> Eliminar
+                      </Button>
+                   ) : <div></div>}
+                   <div className="flex gap-3">
+                      <Button variant="secondary" onClick={() => { setIsEditing(false); if(isCreating) setSelectedLesson(null); }}>Cancelar</Button>
+                      <Button onClick={handleSaveLesson}>{isCreating ? 'Crear Clase' : 'Guardar Cambios'}</Button>
+                   </div>
                 </div>
              </div>
            ) : (
@@ -441,7 +627,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                    <div className="md:col-span-2 space-y-4">
                       <h3 className="text-lg font-bold text-white">Sobre esta clase</h3>
-                      <p className="text-slate-400 leading-relaxed">{selectedLesson.description}</p>
+                      <p className="text-slate-400 leading-relaxed">{selectedLesson.description || 'Sin descripción.'}</p>
                       
                       {selectedLesson.transcription && (
                         <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 mt-4">
@@ -456,7 +642,6 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                    </div>
                    
                    <div className="space-y-4">
-                      {/* Action Card */}
                       <Card className="p-4 space-y-3">
                          <div className="text-xs font-bold text-slate-500 uppercase">Tu Progreso</div>
                          <Button 
@@ -470,11 +655,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                               }
                             }}
                          >
-                            {selectedLesson.completed ? (
-                               <> <CheckCircle size={18} /> Completada </>
-                            ) : (
-                               "Marcar como Vista"
-                            )}
+                            {selectedLesson.completed ? <><CheckCircle size={18} /> Completada</> : "Marcar como Vista"}
                          </Button>
                          
                          {selectedLesson.quizUrl && (
@@ -496,6 +677,39 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
              </div>
            )
         )}
+      </Modal>
+
+      {/* PORTAL CONFIG MODAL */}
+      <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Configuración del Portal" maxWidth="max-w-md">
+         <div className="space-y-4">
+            <div>
+               <label className="block text-sm font-medium text-slate-400 mb-1">Nombre del Portal</label>
+               <input 
+                  type="text" 
+                  value={configForm.name} 
+                  onChange={e => setConfigForm({...configForm, name: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+               />
+            </div>
+            <div>
+               <label className="block text-sm font-medium text-slate-400 mb-1">Color Principal</label>
+               <div className="flex gap-2 flex-wrap">
+                  {['#6366f1', '#10b981', '#a855f7', '#f43f5e', '#f59e0b', '#3b82f6', '#ec4899'].map(color => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setConfigForm({...configForm, themeColor: color})}
+                      className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${configForm.themeColor === color ? 'border-white scale-110' : 'border-transparent'}`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+               </div>
+            </div>
+            <div className="pt-4 flex gap-3">
+               <Button variant="secondary" fullWidth onClick={() => setShowConfigModal(false)}>Cancelar</Button>
+               <Button fullWidth onClick={handleSaveConfig}>Guardar</Button>
+            </div>
+         </div>
       </Modal>
     </div>
   );

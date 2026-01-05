@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { CompanyPortal, User } from '../types';
+import { CompanyPortal } from '../types';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { Plus, Layout, Users, ExternalLink, Activity, Search, Database, Trash2, ShieldAlert } from 'lucide-react';
+import { Plus, Layout, Users, ExternalLink, Activity, Search, Database, Trash2, Edit2, Layers, Box } from 'lucide-react';
 
 interface MasterDashboardProps {
   companies: CompanyPortal[];
@@ -11,6 +11,10 @@ interface MasterDashboardProps {
   onLogout: () => void;
   onDeleteUser: (companyId: string, userId: string) => void;
   onDeleteLesson: (companyId: string, phaseId: string, moduleId: string, lessonId: string) => void;
+  onUpdatePhase: (companyId: string, phaseId: string, title: string) => void;
+  onUpdateModule: (companyId: string, phaseId: string, moduleId: string, title: string) => void;
+  onDeletePhase: (companyId: string, phaseId: string) => void;
+  onDeleteModule: (companyId: string, phaseId: string, moduleId: string) => void;
 }
 
 export const MasterDashboard: React.FC<MasterDashboardProps> = ({ 
@@ -19,7 +23,11 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
   onCreateCompany, 
   onLogout,
   onDeleteUser,
-  onDeleteLesson
+  onDeleteLesson,
+  onUpdatePhase,
+  onUpdateModule,
+  onDeletePhase,
+  onDeleteModule
 }) => {
   const [activeView, setActiveView] = useState<'PORTALS' | 'DATABASE'>('PORTALS');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -153,7 +161,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* User Table */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden h-fit">
           <div className="bg-slate-800/50 p-4 border-b border-slate-700 flex justify-between items-center">
             <h3 className="font-bold text-slate-200 flex items-center gap-2">
               <Users size={18} /> Usuarios Registrados
@@ -162,7 +170,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
               Total: {companies.reduce((acc, c) => acc + c.users.length, 0)}
             </span>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[600px] custom-scrollbar">
             <table className="w-full text-sm text-left text-slate-400">
               <thead className="text-xs text-slate-300 uppercase bg-slate-800/30">
                 <tr>
@@ -203,45 +211,113 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
           </div>
         </div>
 
-        {/* Lessons Table */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
-          <div className="bg-slate-800/50 p-4 border-b border-slate-700 flex justify-between items-center">
+        {/* Structure & Content Table */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex flex-col h-[700px]">
+          <div className="bg-slate-800/50 p-4 border-b border-slate-700 flex justify-between items-center shrink-0">
             <h3 className="font-bold text-slate-200 flex items-center gap-2">
-              <Layout size={18} /> Contenidos y Clases
+              <Layout size={18} /> Estructura y Contenidos
             </h3>
              <span className="text-xs bg-slate-800 px-2 py-1 rounded border border-slate-700 font-mono">
               Items: {companies.reduce((acc, c) => acc + c.phases.reduce((acc2, p) => acc2 + p.modules.reduce((acc3, m) => acc3 + m.lessons.length, 0), 0), 0)}
             </span>
           </div>
-          <div className="overflow-y-auto max-h-[500px] p-4 space-y-4">
+          <div className="overflow-y-auto p-4 space-y-4 custom-scrollbar flex-1">
              {companies.map(company => (
-                <div key={company.id} className="border border-slate-800 rounded-lg p-3">
-                   <div className="text-xs font-bold text-indigo-400 mb-2 uppercase tracking-wider">{company.name}</div>
+                <div key={company.id} className="border border-slate-800 rounded-lg p-3 bg-slate-950/30">
+                   <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-800/50">
+                      <div className="w-2 h-2 rounded-full" style={{backgroundColor: company.themeColor}}></div>
+                      <div className="text-sm font-bold text-white uppercase tracking-wider">{company.name}</div>
+                   </div>
+                   
                    {company.phases.map(phase => (
-                      <div key={phase.id} className="ml-2 mb-2">
-                        <div className="text-xs text-slate-500 font-semibold mb-1">{phase.title}</div>
+                      <div key={phase.id} className="ml-2 mb-4 relative pl-4 border-l-2 border-slate-800">
+                        {/* Phase Header */}
+                        <div className="flex items-center justify-between group mb-2">
+                           <div className="flex items-center gap-2 text-indigo-400 font-semibold text-sm">
+                             <Layers size={14} />
+                             {phase.title}
+                           </div>
+                           <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                              <button 
+                                onClick={() => {
+                                   const newTitle = prompt('Renombrar Fase:', phase.title);
+                                   if(newTitle) onUpdatePhase(company.id, phase.id, newTitle);
+                                }}
+                                className="p-1 text-slate-500 hover:text-indigo-400"
+                              >
+                                <Edit2 size={12} />
+                              </button>
+                              <button 
+                                onClick={() => {
+                                   if(window.confirm('¿Borrar fase y todo su contenido?')) onDeletePhase(company.id, phase.id);
+                                }}
+                                className="p-1 text-slate-500 hover:text-red-400"
+                              >
+                                <Trash2 size={12} />
+                              </button>
+                           </div>
+                        </div>
+
                         {phase.modules.map(module => (
-                           <div key={module.id} className="ml-2 mb-2 pl-2 border-l border-slate-800">
-                              <div className="text-xs text-slate-400 mb-1">{module.title}</div>
-                              <div className="space-y-1">
+                           <div key={module.id} className="ml-2 mb-3 pl-4 border-l border-slate-800/50">
+                              {/* Module Header */}
+                              <div className="flex items-center justify-between group mb-1">
+                                 <div className="flex items-center gap-2 text-slate-300 text-xs font-medium">
+                                    <Box size={12} className="text-slate-500" />
+                                    {module.title}
+                                 </div>
+                                 <div className="opacity-0 group-hover:opacity-100 flex gap-1">
+                                    <button 
+                                       onClick={() => {
+                                          const newTitle = prompt('Renombrar Módulo:', module.title);
+                                          if(newTitle) onUpdateModule(company.id, phase.id, module.id, newTitle);
+                                       }}
+                                       className="p-1 text-slate-600 hover:text-indigo-400"
+                                    >
+                                      <Edit2 size={10} />
+                                    </button>
+                                    <button 
+                                       onClick={() => {
+                                          if(window.confirm('¿Borrar módulo?')) onDeleteModule(company.id, phase.id, module.id);
+                                       }}
+                                       className="p-1 text-slate-600 hover:text-red-400"
+                                    >
+                                      <Trash2 size={10} />
+                                    </button>
+                                 </div>
+                              </div>
+
+                              {/* Lessons List */}
+                              <div className="space-y-1 mt-1">
                                  {module.lessons.map(lesson => (
-                                    <div key={lesson.id} className="flex items-center justify-between text-xs bg-slate-950 p-2 rounded hover:bg-slate-900 group">
-                                       <span className="text-slate-300 truncate max-w-[200px]">{lesson.title}</span>
+                                    <div key={lesson.id} className="flex items-center justify-between text-xs bg-slate-900 p-2 rounded hover:bg-slate-800 group ml-2 border border-slate-800/50">
+                                       <span className="text-slate-400 truncate max-w-[150px]">{lesson.title}</span>
                                        <button 
                                           onClick={() => {
                                             if(window.confirm('¿Eliminar clase de la base de datos?')) onDeleteLesson(company.id, phase.id, module.id, lesson.id);
                                           }}
                                           className="text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                                        >
-                                          <Trash2 size={14} />
+                                          <Trash2 size={12} />
                                        </button>
                                     </div>
                                  ))}
+                                 {module.lessons.length === 0 && (
+                                    <div className="text-[10px] text-slate-600 italic ml-2">Sin clases registradas</div>
+                                 )}
                               </div>
                            </div>
                         ))}
+                         {phase.modules.length === 0 && (
+                            <div className="text-xs text-slate-600 italic ml-4">Sin módulos registrados</div>
+                         )}
                       </div>
                    ))}
+                   {company.phases.length === 0 && (
+                      <div className="text-xs text-slate-500 p-2 text-center border border-dashed border-slate-800 rounded">
+                         Portal Vacío
+                      </div>
+                   )}
                 </div>
              ))}
           </div>
