@@ -80,6 +80,19 @@ const App: React.FC = () => {
     }
   };
 
+  // --- NEW: AI MASS IMPORT HANDLER ---
+  const handleImportAIStructure = (companyId: string, data: { phases: Phase[], users: User[], resources: StudyResource[] }) => {
+    setCompanies(prev => prev.map(c => {
+      if (c.id !== companyId) return c;
+      return {
+        ...c,
+        phases: [...c.phases, ...data.phases],
+        users: [...c.users, ...data.users],
+        resources: [...c.resources, ...data.resources]
+      };
+    }));
+  };
+
   // USER MANAGEMENT
 
   const handleAddUser = (companyId: string, user: User) => {
@@ -331,6 +344,7 @@ const App: React.FC = () => {
         onDeletePhase={handleDeletePhase}
         onDeleteModule={handleDeleteModule}
         onUpdateCompanyRaw={handleUpdateCompanyRaw}
+        onImportAIStructure={handleImportAIStructure}
       />
     );
   }

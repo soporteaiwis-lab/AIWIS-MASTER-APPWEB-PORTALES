@@ -1,109 +1,144 @@
 import { GoogleGenAI } from "@google/genai";
-import { Lesson, QuizQuestion } from "../types";
+import { Lesson, QuizQuestion, Phase, User, StudyResource, UserRole } from "../types";
 
-// NOTE: In a real production app, the API Key should not be exposed on the client side directly
-// without proper restrictions.
+// NOTE: In a real production app, the API Key should not be exposed on the client side directly.
 const API_KEY = process.env.API_KEY || ''; 
 
+// --- Existing Lesson Generator ---
 export const generateLessonContent = async (title: string, context: string): Promise<{ summary: string; quiz: QuizQuestion[] }> => {
-  // Mock fallback if no API key is present or for testing
   if (!API_KEY) {
-    console.warn("No API Key found. Returning mock data for UI demonstration.");
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate network delay
-    return {
-      summary: `
-        <div class="space-y-4 text-slate-300">
-          <h2 class="text-2xl font-bold text-indigo-400">Resumen Ejecutivo: ${title}</h2>
-          <p class="leading-relaxed">En este video, exploramos los fundamentos clave de la Inteligencia Artificial Generativa y su impacto en la productividad corporativa.</p>
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-              <h3 class="font-bold text-white mb-2">📌 Puntos Clave</h3>
-              <ul class="list-disc list-inside space-y-2 text-sm">
-                <li>Diferencia entre IA Discriminativa y Generativa.</li>
-                <li>Estructura básica de un Prompt eficiente.</li>
-                <li>Herramientas: ChatGPT, Claude y Gemini.</li>
-              </ul>
-            </div>
-            <div class="bg-slate-800 p-4 rounded-xl border border-slate-700">
-              <h3 class="font-bold text-white mb-2">🚀 Aplicación Práctica</h3>
-              <p class="text-sm">Implementación inmediata en redacción de correos, análisis de datos y automatización básica.</p>
-            </div>
-          </div>
-
-          <div class="bg-indigo-900/30 border-l-4 border-indigo-500 p-4 rounded-r-lg">
-            <h4 class="font-bold text-white">Conclusión</h4>
-            <p class="text-sm mt-1">La adopción temprana de estas herramientas define la ventaja competitiva en el mercado actual.</p>
-          </div>
-        </div>
-      `,
-      quiz: [
-        { id: 'q1', question: '¿Cuál es la función principal de un LLM?', options: ['Predecir la siguiente palabra probable', 'Buscar en Google', 'Guardar archivos', 'Editar video'], correctIndex: 0 },
-        { id: 'q2', question: '¿Qué significa "Prompt Engineering"?', options: ['Programar en Python', 'Diseñar instrucciones efectivas para la IA', 'Reparar computadoras', 'Ninguna de las anteriores'], correctIndex: 1 },
-        { id: 'q3', question: '¿Qué herramienta es de Google?', options: ['ChatGPT', 'Claude', 'Gemini', 'Llama'], correctIndex: 2 },
-        { id: 'q4', question: 'La temperatura en un modelo afecta:', options: ['La velocidad', 'La creatividad/aleatoriedad', 'El costo', 'El color'], correctIndex: 1 },
-        { id: 'q5', question: '¿La IA Generativa puede crear imágenes?', options: ['No, solo texto', 'Sí, como Midjourney o DALL-E', 'Solo si se le paga', 'Depende del clima'], correctIndex: 1 },
-      ]
-    };
+     console.warn("No API Key. Returning Mock Data.");
+     return { summary: "<p>Mock Summary</p>", quiz: [] };
   }
-
+  
   try {
     const ai = new GoogleGenAI({ apiKey: API_KEY });
-    
-    // Prompt for Summary
-    const summaryPrompt = `
-      Actúa como un experto profesor de tecnología corporativa.
-      Basado en el siguiente tema/contexto: "${title} - ${context}".
-      
-      Genera un RESUMEN HTML interactivo, visual y educativo. 
-      Usa clases de Tailwind CSS para el estilo (colores oscuros, slate-200 para texto, indigo/purple para titulos).
-      No incluyas etiquetas <html> o <body>, solo el contenido del div.
-      Incluye:
-      1. Título llamativo.
-      2. Lista de puntos clave.
-      3. Una sección de "Aplicación Práctica".
-      4. Un recuadro de conclusión.
-    `;
-
-    // Prompt for Quiz (JSON)
-    const quizPrompt = `
-      Basado en el tema "${title} - ${context}".
-      Genera un Quiz de 5 preguntas de selección múltiple en formato JSON puro.
-      El formato debe ser un array de objetos con esta estructura exacta:
-      [
-        { "id": "1", "question": "pregunta", "options": ["a", "b", "c", "d"], "correctIndex": 0 }
-      ]
-      No uses markdown en la respuesta, solo el JSON raw.
-    `;
-
-    // Use ai.models.generateContent instead of getGenerativeModel
     const summaryResult = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: summaryPrompt,
+      model: 'gemini-2.5-flash-latest', // Fast model for simple text
+      contents: `Generate an HTML summary for a lesson titled "${title}". Context: ${context}. Use Tailwind classes.`,
     });
-    
     const quizResult = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: quizPrompt,
+      model: 'gemini-2.5-flash-latest',
+      contents: `Generate 5 quiz questions JSON for "${title}". Schema: [{id, question, options, correctIndex}]`,
       config: { responseMimeType: "application/json" }
     });
 
-    const summaryHtml = summaryResult.text;
-    const quizJsonStr = quizResult.text;
-
-    if (!summaryHtml || !quizJsonStr) {
-      throw new Error("Respuesta vacía del modelo");
-    }
-
-    const quizData = JSON.parse(quizJsonStr);
-
     return {
-      summary: summaryHtml,
-      quiz: quizData
+      summary: summaryResult.text || '',
+      quiz: JSON.parse(quizResult.text || '[]')
+    };
+  } catch (e) {
+    console.error(e);
+    throw e;
+  }
+};
+
+// --- NEW: Portal Structure Generator (AIWIS Genesis) ---
+
+interface GeneratedPortalData {
+  phases: Phase[];
+  users: User[];
+  resources: StudyResource[];
+}
+
+export const generatePortalStructure = async (
+  topic: string, 
+  companyId: string,
+  options: { includeUsers: boolean; includeResources: boolean }
+): Promise<GeneratedPortalData> => {
+
+  if (!API_KEY) {
+    alert("API Key no configurada en el entorno.");
+    throw new Error("No API Key");
+  }
+
+  const ai = new GoogleGenAI({ apiKey: API_KEY });
+
+  // Complex prompt for structured data
+  const prompt = `
+    Actúa como un Arquitecto de Soluciones Educativas (LMS).
+    Tu tarea es generar una estructura de curso completa en formato JSON basada en el tema: "${topic}".
+    
+    Requisitos:
+    1. Crea fases (Phases), módulos (WeekModule) dentro de las fases, y lecciones (Lessons) dentro de los módulos.
+    2. Los IDs deben ser únicos (usa timestamps o random strings simples).
+    3. ${options.includeUsers ? 'Genera 5 usuarios "dummy" con nombres realistas, emails corporativos ficticios y passwords "123".' : 'No generes usuarios.'}
+    4. ${options.includeResources ? 'Genera 3 recursos de estudio (StudyResource) relacionados al tema.' : 'No generes recursos.'}
+    
+    El formato de salida debe ser ESTRICTAMENTE este JSON (sin markdown code blocks):
+    {
+      "phases": [
+        {
+          "id": "p_1",
+          "title": "Fase 1: [Nombre]",
+          "modules": [
+            {
+              "id": "m_1",
+              "title": "Semana 1: [Nombre]",
+              "lessons": [
+                {
+                  "id": "l_1",
+                  "title": "[Nombre Clase]",
+                  "description": "[Breve descripción]",
+                  "thumbnail": "https://picsum.photos/seed/tech/400/225", 
+                  "duration": "45m",
+                  "completed": false
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "users": [
+        {
+          "id": "u_gen_1",
+          "name": "[Nombre]",
+          "email": "[email]",
+          "password": "123",
+          "role": "STUDENT",
+          "companyId": "${companyId}",
+          "progress": 0,
+          "position": "ESTUDIANTE",
+          "skills": { "prompting": 50, "analysis": 50, "tools": 50, "strategy": 50 }
+        }
+      ],
+      "resources": [
+        {
+          "id": "r_gen_1",
+          "title": "[Titulo]",
+          "description": "[Desc]",
+          "url": "#",
+          "type": "LINK"
+        }
+      ]
+    }
+  `;
+
+  try {
+    // Using Pro model for better logical structuring and JSON adherence
+    const result = await ai.models.generateContent({
+      model: 'gemini-3-pro-preview', 
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      }
+    });
+
+    const jsonText = result.text;
+    if (!jsonText) throw new Error("Generación vacía");
+
+    const parsedData = JSON.parse(jsonText) as GeneratedPortalData;
+    
+    // Post-processing to ensure compatibility
+    // (e.g. enforcing empty arrays if AI returns null)
+    return {
+      phases: parsedData.phases || [],
+      users: parsedData.users || [],
+      resources: parsedData.resources || []
     };
 
   } catch (error) {
-    console.error("Error generating AI content:", error);
-    throw new Error("Falló la generación de contenido. Verifica tu API Key.");
+    console.error("Error en Genesis AI:", error);
+    throw new Error("Error generando la estructura. Intenta ser más específico.");
   }
 };
