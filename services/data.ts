@@ -11,6 +11,25 @@ export const INITIAL_COMPANIES: CompanyPortal[] = [
     slug: 'simpledata',
     themeColor: '#6366f1', // Indigo
     createdAt: '2025-01-01',
+    posts: [
+      {
+        id: 'post1',
+        userId: 'u2',
+        userName: 'Juan Escalona',
+        content: '¿Alguien tiene el link de la documentación de Gemini mencionada en la clase 2?',
+        createdAt: '2025-01-10T10:00:00Z',
+        likes: 2
+      },
+      {
+        id: 'post2',
+        userId: 'master1',
+        userName: 'Armin Salazar',
+        userAvatar: 'https://ui-avatars.com/api/?name=Armin+Salazar&background=random',
+        content: 'Hola equipo, recuerden que el módulo de automatización se libera este viernes.',
+        createdAt: '2025-01-12T09:30:00Z',
+        likes: 5
+      }
+    ],
     users: [
       { id: 'u2', name: 'Juan Escalona', role: UserRole.STUDENT, companyId: 'c1', progress: 15 },
       { id: 'u3', name: 'Cristobal Arias', role: UserRole.STUDENT, companyId: 'c1', progress: 85 },
@@ -78,6 +97,7 @@ export const INITIAL_COMPANIES: CompanyPortal[] = [
     slug: 'afri',
     themeColor: '#10b981', // Emerald
     createdAt: '2025-01-02',
+    posts: [],
     users: [
       { id: 'u5', name: 'Alejandro Lopez', role: UserRole.ADMIN, companyId: 'c2', progress: 30 },
     ],
@@ -103,6 +123,7 @@ export const INITIAL_COMPANIES: CompanyPortal[] = [
     slug: 'ada',
     themeColor: '#a855f7', // Purple
     createdAt: '2025-01-03',
+    posts: [],
     users: [
        { id: 'u6', name: 'Julio Sepulveda', role: UserRole.STUDENT, companyId: 'c3', progress: 75 },
     ],

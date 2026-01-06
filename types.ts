@@ -37,6 +37,16 @@ export interface Phase {
   modules: WeekModule[];
 }
 
+export interface ForumPost {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  content: string;
+  createdAt: string;
+  likes: number;
+}
+
 export interface CompanyPortal {
   id: string;
   name: string;
@@ -45,6 +55,7 @@ export interface CompanyPortal {
   themeColor: string; // Hex code or Tailwind color name
   phases: Phase[];
   users: User[];
+  posts: ForumPost[];
   createdAt: string;
 }
 

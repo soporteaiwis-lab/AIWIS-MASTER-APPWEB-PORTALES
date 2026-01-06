@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CompanyPortal, User, UserRole, AppState, Lesson, Phase, WeekModule } from './types';
+import { CompanyPortal, User, UserRole, AppState, Lesson, Phase, WeekModule, ForumPost } from './types';
 import { INITIAL_COMPANIES, MASTER_USER } from './services/data';
 import { LoginView } from './views/LoginView';
 import { MasterDashboard } from './views/MasterDashboard';
@@ -70,7 +70,8 @@ const App: React.FC = () => {
       themeColor: color,
       createdAt: new Date().toISOString(),
       phases: [],
-      users: []
+      users: [],
+      posts: []
     };
     setCompanies([...companies, newCompany]);
   };
@@ -203,6 +204,14 @@ const App: React.FC = () => {
 
       return updatedCompanies;
     });
+  };
+
+  const handleAddPost = (companyId: string, post: ForumPost) => {
+    setCompanies(prev => prev.map(c => 
+      c.id === companyId 
+        ? { ...c, posts: [post, ...c.posts] }
+        : c
+    ));
   };
 
   // --- HIERARCHY MANAGEMENT ---
@@ -343,6 +352,7 @@ const App: React.FC = () => {
         onAddModule={handleAddModule}
         onDeleteModule={handleDeleteModule}
         onUpdateCompany={handleUpdateCompany}
+        onAddPost={handleAddPost}
       />
     );
   }
