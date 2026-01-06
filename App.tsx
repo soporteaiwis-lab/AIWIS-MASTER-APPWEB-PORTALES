@@ -226,10 +226,6 @@ const App: React.FC = () => {
 
         const newProgressPercent = totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
         
-        // In a real DB, we update the specific user's record. Here we update the logged in user or all users for demo simplicity?
-        // Let's update the CURRENT user in the company list if possible, or all (demo constraint).
-        // Improving logic: Update ONLY the user matching current session if we had session context passed down deep.
-        // For now, update all users to keep demo simple or mock specific user update later.
         const updatedUsers = c.users.map(u => ({
           ...u,
           progress: newProgressPercent
