@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
-import { CompanyPortal } from '../types';
+import { CompanyPortal, User, UserRole } from '../types';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { Plus, Layout, Users, ExternalLink, Activity, Search, Database, Trash2, Edit2, Layers, Box } from 'lucide-react';
+import { Modal } from '../components/Modal';
+import { Plus, Layout, Users, ExternalLink, Activity, Search, Database, Trash2, Edit2, Layers, Box, Code, Save } from 'lucide-react';
 
 interface MasterDashboardProps {
   companies: CompanyPortal[];
   onSelectCompany: (companyId: string) => void;
   onCreateCompany: (name: string, color: string) => void;
   onLogout: () => void;
+  onAddUser: (companyId: string, user: User) => void;
   onDeleteUser: (companyId: string, userId: string) => void;
+  onUpdateUser: (companyId: string, user: User) => void;
   onDeleteLesson: (companyId: string, phaseId: string, moduleId: string, lessonId: string) => void;
   onUpdatePhase: (companyId: string, phaseId: string, title: string) => void;
   onUpdateModule: (companyId: string, phaseId: string, moduleId: string, title: string) => void;
   onDeletePhase: (companyId: string, phaseId: string) => void;
   onDeleteModule: (companyId: string, phaseId: string, moduleId: string) => void;
+  onUpdateCompanyRaw: (companyId: string, rawJson: string) => boolean;
 }
 
 export const MasterDashboard: React.FC<MasterDashboardProps> = ({ 
@@ -22,12 +26,15 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
   onSelectCompany, 
   onCreateCompany, 
   onLogout,
+  onAddUser,
   onDeleteUser,
+  onUpdateUser,
   onDeleteLesson,
   onUpdatePhase,
   onUpdateModule,
   onDeletePhase,
-  onDeleteModule
+  onDeleteModule,
+  onUpdateCompanyRaw
 }) => {
   const [activeView, setActiveView] = useState<'PORTALS' | 'DATABASE'>('PORTALS');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -35,11 +42,47 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
   const [newCompanyColor, setNewCompanyColor] = useState('#6366f1');
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Raw Editor State
+  const [rawEditor, setRawEditor] = useState<{ isOpen: boolean; companyId: string; content: string }>({ isOpen: false, companyId: '', content: '' });
+
+  // Add User State
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [newUser, setNewUser] = useState({ name: '', role: 'STUDENT', companyId: '' });
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     onCreateCompany(newCompanyName, newCompanyColor);
     setShowCreateModal(false);
     setNewCompanyName('');
+  };
+
+  const handleOpenRawEditor = (company: CompanyPortal) => {
+    setRawEditor({
+      isOpen: true,
+      companyId: company.id,
+      content: JSON.stringify(company, null, 2)
+    });
+  };
+
+  const handleSaveRaw = () => {
+    const success = onUpdateCompanyRaw(rawEditor.companyId, rawEditor.content);
+    if (success) setRawEditor({ ...rawEditor, isOpen: false });
+  };
+
+  const handleAddUserSubmit = () => {
+     if(!newUser.name || !newUser.companyId) return;
+     const user: User = {
+       id: `u-${Date.now()}`,
+       name: newUser.name,
+       role: newUser.role as UserRole,
+       companyId: newUser.companyId,
+       progress: 0,
+       position: 'NUEVO INGRESO',
+       skills: { prompting: 50, analysis: 50, tools: 50, strategy: 50 }
+     };
+     onAddUser(newUser.companyId, user);
+     setShowUserModal(false);
+     setNewUser({ name: '', role: 'STUDENT', companyId: '' });
   };
 
   // --- SUB-VIEWS ---
@@ -51,9 +94,11 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
           <h1 className="text-3xl font-bold text-white mb-2">Gestión de Portales</h1>
           <p className="text-slate-400">Administra los portales de capacitación de tus clientes corporativos.</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)} className="gap-2">
-          <Plus size={18} /> Nuevo Portal
-        </Button>
+        <div className="flex gap-2">
+           <Button onClick={() => setShowCreateModal(true)} className="gap-2">
+             <Plus size={18} /> Nuevo Portal
+           </Button>
+        </div>
       </div>
 
        {/* Stats Row */}
@@ -93,8 +138,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
         {companies.map(company => (
           <div 
             key={company.id} 
-            className="group relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10 cursor-pointer"
-            onClick={() => onSelectCompany(company.id)}
+            className="group relative bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-indigo-500/50 transition-all duration-300 hover:shadow-xl hover:shadow-indigo-500/10"
           >
             <div className="h-2 w-full" style={{ backgroundColor: company.themeColor }}></div>
             <div className="p-6">
@@ -102,8 +146,17 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
                 <div className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-xl font-bold text-white border border-slate-700">
                     {company.name.substring(0,2).toUpperCase()}
                 </div>
-                <div className="px-2 py-1 bg-slate-800 rounded text-xs font-mono text-slate-400">
-                  ID: {company.slug}
+                <div className="flex flex-col items-end gap-1">
+                   <div className="px-2 py-1 bg-slate-800 rounded text-xs font-mono text-slate-400">
+                     ID: {company.slug}
+                   </div>
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); handleOpenRawEditor(company); }}
+                     className="text-slate-500 hover:text-indigo-400 text-xs flex items-center gap-1 bg-slate-800 px-2 py-1 rounded border border-slate-700 hover:border-indigo-500/50"
+                     title="Editar JSON Base de Datos"
+                   >
+                     <Code size={12} /> JSON / DB
+                   </button>
                 </div>
               </div>
               <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-400 transition-colors">
@@ -119,7 +172,7 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
                     <span className="text-white font-medium">{company.phases.length}</span>
                   </div>
               </div>
-              <Button fullWidth variant="secondary" className="group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600">
+              <Button fullWidth variant="secondary" onClick={() => onSelectCompany(company.id)} className="group-hover:bg-indigo-600 group-hover:text-white group-hover:border-indigo-600">
                 Gestionar Portal <ExternalLink size={16} className="ml-2" />
               </Button>
             </div>
@@ -148,15 +201,20 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
         <p className="text-slate-400">Vista global de registros y control de integridad.</p>
       </div>
 
-      <div className="relative mb-6">
-        <Search className="absolute left-4 top-3.5 h-5 w-5 text-slate-500" />
-        <input 
-          type="text" 
-          placeholder="Filtrar registros por nombre de usuario, empresa o ID..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-12 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-sm"
-        />
+      <div className="relative mb-6 flex gap-4">
+        <div className="relative flex-1">
+           <Search className="absolute left-4 top-3.5 h-5 w-5 text-slate-500" />
+           <input 
+             type="text" 
+             placeholder="Filtrar registros por nombre de usuario, empresa o ID..." 
+             value={searchTerm}
+             onChange={(e) => setSearchTerm(e.target.value)}
+             className="w-full bg-slate-900 border border-slate-800 rounded-xl py-3 pl-12 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-mono text-sm"
+           />
+        </div>
+        <Button onClick={() => setShowUserModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+           <Plus size={18} className="mr-2"/> Agregar Usuario
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-[calc(100vh-250px)]">
@@ -406,6 +464,67 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Raw JSON Editor */}
+      <Modal isOpen={rawEditor.isOpen} onClose={() => setRawEditor({...rawEditor, isOpen: false})} title="Editor de Base de Datos (JSON)" maxWidth="max-w-5xl">
+         <div className="space-y-4 h-[70vh] flex flex-col">
+            <div className="bg-amber-500/10 border border-amber-500/20 text-amber-200 p-3 rounded text-sm flex items-center gap-2">
+               <Activity size={16} />
+               Advertencia: Estás editando directamente el estado de la aplicación. Errores de sintaxis pueden romper la vista de la empresa.
+            </div>
+            <textarea 
+               value={rawEditor.content}
+               onChange={(e) => setRawEditor({...rawEditor, content: e.target.value})}
+               className="flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 font-mono text-xs text-green-400 focus:border-indigo-500 outline-none resize-none leading-relaxed"
+               spellCheck={false}
+            />
+            <div className="flex justify-end gap-3 pt-2">
+               <Button variant="secondary" onClick={() => setRawEditor({...rawEditor, isOpen: false})}>Cancelar</Button>
+               <Button onClick={handleSaveRaw} className="bg-green-600 hover:bg-green-500"><Save size={16} className="mr-2"/> Guardar Cambios</Button>
+            </div>
+         </div>
+      </Modal>
+
+      {/* Add User Modal */}
+      <Modal isOpen={showUserModal} onClose={() => setShowUserModal(false)} title="Agregar Nuevo Usuario" maxWidth="max-w-md">
+         <div className="space-y-4">
+            <div>
+               <label className="block text-sm font-medium text-slate-400 mb-1">Nombre Completo</label>
+               <input 
+                  type="text" 
+                  value={newUser.name}
+                  onChange={e => setNewUser({...newUser, name: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white"
+               />
+            </div>
+            <div>
+               <label className="block text-sm font-medium text-slate-400 mb-1">Empresa</label>
+               <select 
+                  value={newUser.companyId}
+                  onChange={e => setNewUser({...newUser, companyId: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white"
+               >
+                  <option value="">Seleccionar...</option>
+                  {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+               </select>
+            </div>
+            <div>
+               <label className="block text-sm font-medium text-slate-400 mb-1">Rol</label>
+               <select 
+                  value={newUser.role}
+                  onChange={e => setNewUser({...newUser, role: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white"
+               >
+                  <option value="STUDENT">Estudiante</option>
+                  <option value="ADMIN">Administrador</option>
+               </select>
+            </div>
+            <div className="flex justify-end gap-3 pt-4">
+               <Button variant="secondary" onClick={() => setShowUserModal(false)}>Cancelar</Button>
+               <Button onClick={handleAddUserSubmit}>Crear Usuario</Button>
+            </div>
+         </div>
+      </Modal>
     </div>
   );
 };

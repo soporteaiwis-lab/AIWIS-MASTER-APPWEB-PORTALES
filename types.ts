@@ -4,13 +4,23 @@ export enum UserRole {
   STUDENT = 'STUDENT'
 }
 
+export interface UserSkills {
+  prompting: number;
+  analysis: number;
+  tools: number;
+  strategy: number;
+  [key: string]: number;
+}
+
 export interface User {
   id: string;
   name: string;
   role: UserRole;
-  companyId: string; // 'AIWIS' or specific company ID
+  companyId: string;
   avatarUrl?: string;
   progress?: number;
+  skills?: UserSkills; // FIFA Style stats
+  position?: string; // e.g., "PROMPTER", "ARCHITECT"
 }
 
 export interface Lesson {
@@ -18,11 +28,11 @@ export interface Lesson {
   title: string;
   description: string;
   thumbnail: string;
-  videoUrl?: string; // YouTube or Meet URL
+  videoUrl?: string;
   duration: string;
   completed: boolean;
-  transcription?: string; // Markdown or plain text
-  quizUrl?: string; // Link to a Google Form or Typeform
+  transcription?: string;
+  quizUrl?: string;
 }
 
 export interface WeekModule {
@@ -50,13 +60,14 @@ export interface ForumPost {
 export interface CompanyPortal {
   id: string;
   name: string;
-  slug: string; // e.g., 'simpledata', 'ada'
+  slug: string;
   logoUrl?: string;
-  themeColor: string; // Hex code or Tailwind color name
+  themeColor: string;
   phases: Phase[];
   users: User[];
   posts: ForumPost[];
   createdAt: string;
+  skillLabels?: { [key: string]: string }; // Custom labels for skills (e.g. { prompting: "Ingeniería de Prompts" })
 }
 
 export interface AppState {

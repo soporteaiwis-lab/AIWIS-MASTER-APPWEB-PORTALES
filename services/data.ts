@@ -11,6 +11,12 @@ export const INITIAL_COMPANIES: CompanyPortal[] = [
     slug: 'simpledata',
     themeColor: '#6366f1', // Indigo
     createdAt: '2025-01-01',
+    skillLabels: {
+      prompting: 'Prompting',
+      analysis: 'Análisis',
+      tools: 'Herramientas',
+      strategy: 'Estrategia'
+    },
     posts: [
       {
         id: 'post1',
@@ -19,21 +25,21 @@ export const INITIAL_COMPANIES: CompanyPortal[] = [
         content: '¿Alguien tiene el link de la documentación de Gemini mencionada en la clase 2?',
         createdAt: '2025-01-10T10:00:00Z',
         likes: 2
-      },
-      {
-        id: 'post2',
-        userId: 'master1',
-        userName: 'Armin Salazar',
-        userAvatar: 'https://ui-avatars.com/api/?name=Armin+Salazar&background=random',
-        content: 'Hola equipo, recuerden que el módulo de automatización se libera este viernes.',
-        createdAt: '2025-01-12T09:30:00Z',
-        likes: 5
       }
     ],
     users: [
-      { id: 'u2', name: 'Juan Escalona', role: UserRole.STUDENT, companyId: 'c1', progress: 15 },
-      { id: 'u3', name: 'Cristobal Arias', role: UserRole.STUDENT, companyId: 'c1', progress: 85 },
-      { id: 'u4', name: 'Anibal Alcazar', role: UserRole.STUDENT, companyId: 'c1', progress: 0 },
+      { 
+        id: 'u2', name: 'Juan Escalona', role: UserRole.STUDENT, companyId: 'c1', progress: 15, position: 'DEV JUNIOR',
+        skills: { prompting: 45, analysis: 60, tools: 30, strategy: 20 }
+      },
+      { 
+        id: 'u3', name: 'Cristobal Arias', role: UserRole.STUDENT, companyId: 'c1', progress: 85, position: 'AI LEAD',
+        skills: { prompting: 90, analysis: 85, tools: 95, strategy: 80 }
+      },
+      { 
+        id: 'u4', name: 'Anibal Alcazar', role: UserRole.STUDENT, companyId: 'c1', progress: 0, position: 'MANAGER',
+        skills: { prompting: 10, analysis: 40, tools: 10, strategy: 70 }
+      },
     ],
     phases: [
       {
@@ -51,43 +57,13 @@ export const INITIAL_COMPANIES: CompanyPortal[] = [
                 duration: '45m', 
                 thumbnail: getThumb(101), 
                 completed: true,
-                videoUrl: 'https://www.youtube.com/embed/jKrj8kV8hPI', // Example YouTube
-                transcription: 'Bienvenidos a la clase de introducción. Hoy hablaremos de cómo los modelos de lenguaje transforman el texto...',
+                videoUrl: 'https://www.youtube.com/embed/jKrj8kV8hPI', 
+                transcription: 'Bienvenidos a la clase de introducción...',
                 quizUrl: 'https://docs.google.com/forms/u/0/'
-              },
-              { 
-                id: 'l2', 
-                title: 'Prompt Engineering I', 
-                description: 'Estructura de prompts eficientes (Contexto, Instrucción, Formato).', 
-                duration: '60m', 
-                thumbnail: getThumb(102), 
-                completed: true,
-                videoUrl: '', 
-                transcription: '' 
-              },
-              { 
-                id: 'l3', 
-                title: 'Herramientas de Texto', 
-                description: 'Comparativa entre ChatGPT, Gemini y Claude.', 
-                duration: '50m', 
-                thumbnail: getThumb(103), 
-                completed: false 
-              },
-            ]
-          },
-          {
-            id: 'w2',
-            title: 'Semana 2: Automatización',
-            lessons: [
-              { id: 'l4', title: 'Integraciones API', description: 'Conectando servicios', duration: '55m', thumbnail: getThumb(104), completed: false },
+              }
             ]
           }
         ]
-      },
-      {
-        id: 'p2',
-        title: 'Fase 2: Proyecto Final',
-        modules: []
       }
     ]
   },
@@ -97,25 +73,12 @@ export const INITIAL_COMPANIES: CompanyPortal[] = [
     slug: 'afri',
     themeColor: '#10b981', // Emerald
     createdAt: '2025-01-02',
+    skillLabels: { prompting: 'Código', analysis: 'Legacy', tools: 'Migración', strategy: 'Arquitectura' },
     posts: [],
     users: [
-      { id: 'u5', name: 'Alejandro Lopez', role: UserRole.ADMIN, companyId: 'c2', progress: 30 },
+      { id: 'u5', name: 'Alejandro Lopez', role: UserRole.ADMIN, companyId: 'c2', progress: 30, position: 'CTO', skills: { prompting: 80, analysis: 99, tools: 70, strategy: 90 } },
     ],
-    phases: [
-      {
-        id: 'p1',
-        title: 'Transformación Legacy',
-        modules: [
-           {
-            id: 'w1',
-            title: 'Módulo 1: COBOL a IA',
-            lessons: [
-              { id: 'l1', title: 'Análisis de Código Legacy', description: 'Usando LLMs para leer Cobol', duration: '90m', thumbnail: getThumb(201), completed: true },
-            ]
-           }
-        ]
-      }
-    ]
+    phases: []
   },
   {
     id: 'c3',
@@ -125,23 +88,9 @@ export const INITIAL_COMPANIES: CompanyPortal[] = [
     createdAt: '2025-01-03',
     posts: [],
     users: [
-       { id: 'u6', name: 'Julio Sepulveda', role: UserRole.STUDENT, companyId: 'c3', progress: 75 },
+       { id: 'u6', name: 'Julio Sepulveda', role: UserRole.STUDENT, companyId: 'c3', progress: 75, position: 'ANALYST', skills: { prompting: 70, analysis: 70, tools: 70, strategy: 70 } },
     ],
-    phases: [
-      {
-        id: 'p1',
-        title: 'Adopción Corporativa',
-        modules: [
-           {
-            id: 'w1',
-            title: 'Onboarding IA',
-            lessons: [
-              { id: 'l1', title: 'Políticas de uso', description: 'Seguridad y privacidad', duration: '30m', thumbnail: getThumb(301), completed: true },
-            ]
-           }
-        ]
-      }
-    ]
+    phases: []
   }
 ];
 
@@ -150,5 +99,6 @@ export const MASTER_USER: User = {
   name: 'Armin Salazar',
   role: UserRole.MASTER,
   companyId: 'AIWIS',
-  avatarUrl: 'https://ui-avatars.com/api/?name=Armin+Salazar&background=random'
+  avatarUrl: 'https://ui-avatars.com/api/?name=Armin+Salazar&background=random',
+  position: 'CEO / MASTER'
 };

@@ -43,7 +43,8 @@ const App: React.FC = () => {
         name: u || 'Usuario Demo',
         role: UserRole.STUDENT,
         companyId: company.id,
-        progress: 0
+        progress: 0,
+        skills: { prompting: 50, analysis: 50, tools: 50, strategy: 50 }
       };
 
       if (!foundUser) {
@@ -71,9 +72,32 @@ const App: React.FC = () => {
       createdAt: new Date().toISOString(),
       phases: [],
       users: [],
-      posts: []
+      posts: [],
+      skillLabels: { prompting: 'Prompting', analysis: 'Análisis', tools: 'Herramientas', strategy: 'Estrategia' }
     };
     setCompanies([...companies, newCompany]);
+  };
+
+  const handleUpdateCompanyRaw = (companyId: string, rawJson: string) => {
+    try {
+      const parsed = JSON.parse(rawJson);
+      // Basic validation
+      if (!parsed.id || !parsed.name) throw new Error("JSON Inválido: Falta ID o Nombre");
+      setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, ...parsed } : c));
+      return true;
+    } catch (e) {
+      alert("Error al guardar JSON: " + (e as Error).message);
+      return false;
+    }
+  };
+
+  // USER MANAGEMENT
+
+  const handleAddUser = (companyId: string, user: User) => {
+    setCompanies(prev => prev.map(c => {
+       if (c.id !== companyId) return c;
+       return { ...c, users: [...c.users, user] };
+    }));
   };
 
   const handleDeleteUser = (companyId: string, userId: string) => {
@@ -85,6 +109,18 @@ const App: React.FC = () => {
        };
     }));
   };
+
+  const handleUpdateUser = (companyId: string, updatedUser: User) => {
+    setCompanies(prev => prev.map(c => {
+       if (c.id !== companyId) return c;
+       return {
+         ...c,
+         users: c.users.map(u => u.id === updatedUser.id ? updatedUser : u)
+       };
+    }));
+  };
+
+  // CONTENT MANAGEMENT
 
   const handleDeleteLesson = (companyId: string, phaseId: string, moduleId: string, lessonId: string) => {
     setCompanies(prev => prev.map(c => {
@@ -154,10 +190,10 @@ const App: React.FC = () => {
 
   const handleToggleComplete = (companyId: string, phaseId: string, moduleId: string, lessonId: string) => {
     setCompanies(prev => {
-      const updatedCompanies = prev.map(c => {
+      return prev.map(c => {
         if (c.id !== companyId) return c;
         
-        // 1. Toggle Lesson Status
+        // 1. Toggle Lesson Status locally
         const updatedPhases = c.phases.map(p => {
           if (p.id !== phaseId) return p;
           return {
@@ -175,7 +211,7 @@ const App: React.FC = () => {
           };
         });
 
-        // 2. Calculate New Progress for all users in this company (Simplified: All users share same lesson state in this demo)
+        // 2. Recalculate Progress (Simple logic: total completed / total lessons)
         let totalLessons = 0;
         let completedLessons = 0;
         
@@ -190,6 +226,10 @@ const App: React.FC = () => {
 
         const newProgressPercent = totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
         
+        // In a real DB, we update the specific user's record. Here we update the logged in user or all users for demo simplicity?
+        // Let's update the CURRENT user in the company list if possible, or all (demo constraint).
+        // Improving logic: Update ONLY the user matching current session if we had session context passed down deep.
+        // For now, update all users to keep demo simple or mock specific user update later.
         const updatedUsers = c.users.map(u => ({
           ...u,
           progress: newProgressPercent
@@ -201,8 +241,6 @@ const App: React.FC = () => {
           users: updatedUsers
         };
       });
-
-      return updatedCompanies;
     });
   };
 
@@ -322,12 +360,15 @@ const App: React.FC = () => {
         onSelectCompany={handleMasterSelectCompany}
         onCreateCompany={handleCreateCompany}
         onLogout={handleLogout}
+        onAddUser={handleAddUser}
         onDeleteUser={handleDeleteUser}
+        onUpdateUser={handleUpdateUser}
         onDeleteLesson={handleDeleteLesson}
         onUpdatePhase={handleUpdatePhase}
         onUpdateModule={handleUpdateModule}
         onDeletePhase={handleDeletePhase}
         onDeleteModule={handleDeleteModule}
+        onUpdateCompanyRaw={handleUpdateCompanyRaw}
       />
     );
   }
@@ -353,6 +394,9 @@ const App: React.FC = () => {
         onDeleteModule={handleDeleteModule}
         onUpdateCompany={handleUpdateCompany}
         onAddPost={handleAddPost}
+        onAddUser={handleAddUser}
+        onUpdateUser={handleUpdateUser}
+        onDeleteUser={handleDeleteUser}
       />
     );
   }

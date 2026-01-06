@@ -6,9 +6,9 @@ import { Modal } from '../components/Modal';
 import { ActionModal } from '../components/ActionModal';
 import { 
   PlayCircle, CheckCircle, Lock, BookOpen, Users, 
-  LayoutDashboard, LogOut, Settings, Plus, MessageSquare, Edit3, Link as LinkIcon, FileText, Menu, X, Trash2, Edit, Layers, Database, Send, ChevronDown, ChevronUp, AlertCircle
+  LayoutDashboard, LogOut, Settings, Plus, MessageSquare, Edit3, Link as LinkIcon, FileText, Menu, X, Trash2, Edit, Layers, Database, Send, ChevronDown, ChevronUp, AlertCircle, Save
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
 
 interface CompanyPortalProps {
   company: CompanyPortal;
@@ -26,6 +26,10 @@ interface CompanyPortalProps {
   onDeleteModule: (companyId: string, phaseId: string, moduleId: string) => void;
   onUpdateCompany: (companyId: string, data: Partial<CompanyPortal>) => void;
   onAddPost: (companyId: string, post: ForumPost) => void;
+  // User Management
+  onAddUser: (companyId: string, user: User) => void;
+  onUpdateUser: (companyId: string, user: User) => void;
+  onDeleteUser: (companyId: string, userId: string) => void;
 }
 
 export const CompanyPortalView: React.FC<CompanyPortalProps> = ({ 
@@ -42,7 +46,10 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   onAddModule,
   onDeleteModule,
   onUpdateCompany,
-  onAddPost
+  onAddPost,
+  onAddUser,
+  onUpdateUser,
+  onDeleteUser
 }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'content' | 'team' | 'forum'>('dashboard');
   const [activePhase, setActivePhase] = useState(0);
@@ -52,7 +59,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   // Modals State
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [isCreating, setIsCreating] = useState(false); // Creating a new lesson
+  const [isCreating, setIsCreating] = useState(false); 
   const [editForm, setEditForm] = useState<Partial<Lesson>>({});
   
   // Custom Action Modals
@@ -66,8 +73,10 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   // Forum State
   const [newPostContent, setNewPostContent] = useState('');
 
-  // Team View State
-  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  // Team View State: Player Card Edit
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({ name: '', position: 'ESTUDIANTE' });
 
   const isMaster = currentUser.role === UserRole.MASTER;
   const primaryColor = company.themeColor;
@@ -91,6 +100,9 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
          if (foundLesson.completed !== selectedLesson.completed || foundLesson.title !== selectedLesson.title || foundLesson.description !== selectedLesson.description) {
             setSelectedLesson(foundLesson);
          }
+       } else {
+         // Lesson deleted? Close modal
+         setSelectedLesson(null);
        }
     }
   }, [company, selectedLesson]);
@@ -129,6 +141,14 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   };
 
   const stats = calculateTotalLessons();
+
+  const calculateOverall = (user: User) => {
+    if (!user.skills) return user.progress || 0;
+    const skills = Object.values(user.skills);
+    const avgSkills = skills.reduce((a, b) => a + b, 0) / skills.length;
+    // Weighted: 40% Progress, 60% Skills
+    return Math.round(((user.progress || 0) * 0.4) + (avgSkills * 0.6));
+  };
 
   // --- Handlers ---
   const handleAddPhaseClick = () => setActionModal({ isOpen: true, title: 'Nueva Fase', type: 'PHASE' });
@@ -202,7 +222,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   const handleDeleteCurrentLesson = () => {
     if (selectedLesson && currentPhase && currentModule && window.confirm('¿Borrar esta clase permanentemente?')) {
       onDeleteLesson(company.id, currentPhase.id, currentModule.id, selectedLesson.id);
-      setSelectedLesson(null);
+      setSelectedLesson(null); // Explicitly clear selection
     }
   };
 
@@ -233,6 +253,29 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
     };
     onAddPost(company.id, newPost);
     setNewPostContent('');
+  };
+
+  const handleAddUserSubmit = () => {
+    if(!newUserForm.name) return;
+    const u: User = {
+      id: `u-${Date.now()}`,
+      name: newUserForm.name,
+      role: UserRole.STUDENT,
+      companyId: company.id,
+      progress: 0,
+      position: newUserForm.position || 'NUEVO INGRESO',
+      skills: { prompting: 50, analysis: 50, tools: 50, strategy: 50 }
+    };
+    onAddUser(company.id, u);
+    setShowAddUserModal(false);
+    setNewUserForm({ name: '', position: 'ESTUDIANTE' });
+  };
+
+  const handleSaveUserSkills = () => {
+    if(editingUser) {
+      onUpdateUser(company.id, editingUser);
+      setEditingUser(null);
+    }
   };
 
   // --- VIEWS ---
@@ -504,75 +547,81 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   };
 
   const TeamView = () => {
-     // For this demo, let's assume "progress" maps somewhat to completed lessons vs total
-     // In a real app, we would calculate per user based on a user-lesson-status table.
-     // Here we simulate it by using the company content structure against the dummy user.progress.
-     
-     const totalLessons = stats.total;
-     
      return (
         <div className="space-y-6 animate-fade-in pb-20">
-           <div>
-              <h1 className="text-3xl font-bold text-white mb-1">Equipo</h1>
-              <p className="text-slate-400">Progreso detallado de los estudiantes.</p>
+           <div className="flex justify-between items-end">
+             <div>
+                <h1 className="text-3xl font-bold text-white mb-1">Equipo</h1>
+                <p className="text-slate-400">Progreso y habilidades (Skills) de los estudiantes.</p>
+             </div>
+             {isMaster && (
+                <Button onClick={() => setShowAddUserModal(true)}><Plus size={16} className="mr-2"/> Agregar Alumno</Button>
+             )}
            </div>
            
-           <div className="grid grid-cols-1 gap-4">
+           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {company.users.map(user => {
-                 const isExpanded = expandedUserId === user.id;
-                 // Mock calculation: completed count based on progress %
-                 const completedCount = Math.round((totalLessons * (user.progress || 0)) / 100);
+                 const overall = calculateOverall(user);
+                 const skills = user.skills || { prompting: 0, analysis: 0, tools: 0, strategy: 0 };
                  
                  return (
-                    <Card key={user.id} className={`transition-all duration-300 ${isExpanded ? 'border-indigo-500/50' : 'hover:border-slate-700'}`}>
-                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer" onClick={() => setExpandedUserId(isExpanded ? null : user.id)}>
-                          <div className="flex items-center gap-4">
-                             <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center font-bold text-lg text-slate-300">
-                                {user.name.charAt(0)}
+                    <div 
+                      key={user.id} 
+                      className={`relative overflow-hidden rounded-xl border-2 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 bg-gradient-to-br from-slate-900 to-slate-950 ${isMaster ? 'cursor-pointer hover:border-indigo-500' : 'border-slate-800'}`}
+                      style={{ borderColor: isMaster ? undefined : company.themeColor }}
+                      onClick={() => isMaster && setEditingUser(user)}
+                    >
+                       {/* FIFA CARD HEADER */}
+                       <div className="p-4 flex items-start gap-4 border-b border-slate-800/50 bg-slate-900/50">
+                          <div className="relative">
+                             <div className="w-16 h-16 rounded-full border-2 border-slate-700 overflow-hidden bg-slate-800">
+                                {user.avatarUrl ? <img src={user.avatarUrl} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center font-bold text-xl">{user.name.charAt(0)}</div>}
                              </div>
-                             <div>
-                                <h4 className="font-bold text-white">{user.name}</h4>
-                                <span className="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-400 border border-slate-700">{user.role}</span>
+                             <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-slate-950 border border-slate-700 flex items-center justify-center font-bold text-sm text-white shadow-lg" style={{ color: overall > 80 ? '#fbbf24' : '#94a3b8' }}>
+                                {overall}
                              </div>
                           </div>
-                          <div className="flex items-center gap-6">
-                             <div className="text-right">
-                                <div className="text-sm text-slate-400">Progreso</div>
-                                <div className="text-xl font-bold text-white">{user.progress}%</div>
-                             </div>
-                             <div className="text-slate-500">
-                                {isExpanded ? <ChevronUp /> : <ChevronDown />}
+                          <div className="flex-1 min-w-0">
+                             <h3 className="font-bold text-lg text-white truncate">{user.name}</h3>
+                             <div className="text-xs font-mono text-slate-400 uppercase tracking-widest">{user.position || user.role}</div>
+                             <div className="flex items-center gap-1 mt-1">
+                                <img src={`https://flagcdn.com/24x18/${'cl'}.png`} alt="Country" className="h-3 rounded-sm opacity-70" />
+                                <span className="text-[10px] text-slate-500 font-bold">AIWIS ACADEMY</span>
                              </div>
                           </div>
                        </div>
-                       
-                       {isExpanded && (
-                          <div className="mt-6 pt-6 border-t border-slate-800/50 animate-fade-in">
-                             <h5 className="text-sm font-bold text-slate-400 uppercase mb-3">Detalle de Clases</h5>
-                             {/* Mock Detail: Show all lessons, mark first N as completed based on percentage */}
-                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
-                                {company.phases.flatMap(p => p.modules.flatMap(m => m.lessons.map(l => ({...l, moduleTitle: m.title})))).map((lesson, idx) => {
-                                   // Visual trick for demo: if index < completedCount, it's done.
-                                   const isDone = idx < completedCount; 
-                                   return (
-                                      <div key={lesson.id} className="flex items-center justify-between p-2 bg-slate-950 rounded border border-slate-800">
-                                         <div className="flex items-center gap-3 overflow-hidden">
-                                            <div className={`p-1 rounded-full ${isDone ? 'text-emerald-400 bg-emerald-500/10' : 'text-slate-600 bg-slate-800'}`}>
-                                               {isDone ? <CheckCircle size={14} /> : <div className="w-3.5 h-3.5 rounded-full border-2 border-slate-600"></div>}
-                                            </div>
-                                            <div className="truncate">
-                                               <div className="text-sm text-white truncate">{lesson.title}</div>
-                                               <div className="text-[10px] text-slate-500 truncate">{lesson.moduleTitle}</div>
-                                            </div>
-                                         </div>
-                                         <span className="text-xs text-slate-600 font-mono">{lesson.duration}</span>
-                                      </div>
-                                   );
-                                })}
-                             </div>
+
+                       {/* FIFA STATS */}
+                       <div className="p-4 grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
+                          <div className="flex justify-between items-center">
+                             <span className="text-slate-500 font-bold text-xs uppercase">{company.skillLabels?.prompting || 'PRO'}</span>
+                             <span className={`font-bold ${skills.prompting > 80 ? 'text-emerald-400' : 'text-white'}`}>{skills.prompting}</span>
                           </div>
-                       )}
-                    </Card>
+                          <div className="flex justify-between items-center">
+                             <span className="text-slate-500 font-bold text-xs uppercase">{company.skillLabels?.analysis || 'ANA'}</span>
+                             <span className={`font-bold ${skills.analysis > 80 ? 'text-emerald-400' : 'text-white'}`}>{skills.analysis}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                             <span className="text-slate-500 font-bold text-xs uppercase">{company.skillLabels?.tools || 'TOO'}</span>
+                             <span className={`font-bold ${skills.tools > 80 ? 'text-emerald-400' : 'text-white'}`}>{skills.tools}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                             <span className="text-slate-500 font-bold text-xs uppercase">{company.skillLabels?.strategy || 'STR'}</span>
+                             <span className={`font-bold ${skills.strategy > 80 ? 'text-emerald-400' : 'text-white'}`}>{skills.strategy}</span>
+                          </div>
+                       </div>
+
+                       {/* PROGRESS BAR FOOTER */}
+                       <div className="px-4 pb-4">
+                          <div className="flex justify-between text-[10px] text-slate-500 mb-1 uppercase font-bold">
+                             <span>Clases Completadas</span>
+                             <span>{user.progress}%</span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                             <div className="h-full transition-all duration-1000" style={{ width: `${user.progress}%`, backgroundColor: company.themeColor }}></div>
+                          </div>
+                       </div>
+                    </div>
                  );
               })}
            </div>
@@ -740,11 +789,75 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
         )}
       </Modal>
 
+      {/* Config Modal */}
       <Modal isOpen={showConfigModal} onClose={() => setShowConfigModal(false)} title="Configuración del Portal" maxWidth="max-w-md">
          <div className="space-y-4">
             <div><label className="block text-sm font-medium text-slate-400 mb-1">Nombre del Portal</label><input type="text" value={configForm.name} onChange={e => setConfigForm({...configForm, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white focus:ring-2 focus:ring-indigo-500 outline-none" /></div>
             <div><label className="block text-sm font-medium text-slate-400 mb-1">Color Principal</label><div className="flex gap-2 flex-wrap">{['#6366f1', '#10b981', '#a855f7', '#f43f5e', '#f59e0b', '#3b82f6', '#ec4899'].map(color => (<button key={color} type="button" onClick={() => setConfigForm({...configForm, themeColor: color})} className={`w-8 h-8 rounded-full border-2 transition-transform hover:scale-110 ${configForm.themeColor === color ? 'border-white scale-110' : 'border-transparent'}`} style={{ backgroundColor: color }} />))}</div></div>
             <div className="pt-4 flex gap-3"><Button variant="secondary" fullWidth onClick={() => setShowConfigModal(false)}>Cancelar</Button><Button fullWidth onClick={handleSaveConfig}>Guardar</Button></div>
+         </div>
+      </Modal>
+
+      {/* Edit User Skills Modal (Master Only) */}
+      <Modal isOpen={!!editingUser} onClose={() => setEditingUser(null)} title="Editar Habilidades (Skills)" maxWidth="max-w-md">
+         {editingUser && (
+            <div className="space-y-6">
+               <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
+                  <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center font-bold">{editingUser.name.charAt(0)}</div>
+                  <div>
+                     <h4 className="font-bold text-white">{editingUser.name}</h4>
+                     <p className="text-xs text-slate-400">{editingUser.position}</p>
+                  </div>
+               </div>
+               
+               <div className="space-y-4">
+                  {['prompting', 'analysis', 'tools', 'strategy'].map(skill => (
+                     <div key={skill}>
+                        <div className="flex justify-between text-xs mb-1 uppercase font-bold text-slate-400">
+                           <span>{company.skillLabels?.[skill] || skill}</span>
+                           <span className="text-white">{editingUser.skills?.[skill] || 0}</span>
+                        </div>
+                        <input 
+                           type="range" 
+                           min="0" 
+                           max="99" 
+                           value={editingUser.skills?.[skill] || 0}
+                           onChange={(e) => setEditingUser({
+                              ...editingUser,
+                              skills: { ...editingUser.skills, [skill]: parseInt(e.target.value) } as any
+                           })}
+                           className="w-full accent-indigo-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                        />
+                     </div>
+                  ))}
+               </div>
+
+               <div className="flex justify-between pt-4 border-t border-slate-800">
+                  <Button variant="danger" onClick={() => { if(window.confirm('Eliminar usuario?')) { onDeleteUser(company.id, editingUser.id); setEditingUser(null); } }}><Trash2 size={16}/></Button>
+                  <div className="flex gap-2">
+                     <Button variant="secondary" onClick={() => setEditingUser(null)}>Cancelar</Button>
+                     <Button onClick={handleSaveUserSkills}><Save size={16} className="mr-2"/> Guardar</Button>
+                  </div>
+               </div>
+            </div>
+         )}
+      </Modal>
+
+      {/* Add User Modal */}
+      <Modal isOpen={showAddUserModal} onClose={() => setShowAddUserModal(false)} title="Nuevo Alumno" maxWidth="max-w-sm">
+         <div className="space-y-4">
+            <div>
+               <label className="block text-sm font-medium text-slate-400 mb-1">Nombre Completo</label>
+               <input type="text" value={newUserForm.name} onChange={e => setNewUserForm({...newUserForm, name: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" />
+            </div>
+            <div>
+               <label className="block text-sm font-medium text-slate-400 mb-1">Posición / Cargo</label>
+               <input type="text" value={newUserForm.position} onChange={e => setNewUserForm({...newUserForm, position: e.target.value})} className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-white" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+               <Button variant="secondary" onClick={() => setShowAddUserModal(false)}>Cancelar</Button>
+               <Button onClick={handleAddUserSubmit}>Crear</Button>
+            </div>
          </div>
       </Modal>
 
