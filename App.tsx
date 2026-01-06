@@ -152,11 +152,12 @@ const App: React.FC = () => {
   };
 
   const handleToggleComplete = (companyId: string, phaseId: string, moduleId: string, lessonId: string) => {
-    setCompanies(prev => prev.map(c => {
-      if (c.id !== companyId) return c;
-      return {
-        ...c,
-        phases: c.phases.map(p => {
+    setCompanies(prev => {
+      const updatedCompanies = prev.map(c => {
+        if (c.id !== companyId) return c;
+        
+        // 1. Toggle Lesson Status
+        const updatedPhases = c.phases.map(p => {
           if (p.id !== phaseId) return p;
           return {
             ...p,
@@ -171,9 +172,37 @@ const App: React.FC = () => {
               };
             })
           };
-        })
-      };
-    }));
+        });
+
+        // 2. Calculate New Progress for all users in this company (Simplified: All users share same lesson state in this demo)
+        let totalLessons = 0;
+        let completedLessons = 0;
+        
+        updatedPhases.forEach(p => {
+          p.modules.forEach(m => {
+            m.lessons.forEach(l => {
+              totalLessons++;
+              if (l.completed) completedLessons++;
+            });
+          });
+        });
+
+        const newProgressPercent = totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
+        
+        const updatedUsers = c.users.map(u => ({
+          ...u,
+          progress: newProgressPercent
+        }));
+
+        return {
+          ...c,
+          phases: updatedPhases,
+          users: updatedUsers
+        };
+      });
+
+      return updatedCompanies;
+    });
   };
 
   // --- HIERARCHY MANAGEMENT ---

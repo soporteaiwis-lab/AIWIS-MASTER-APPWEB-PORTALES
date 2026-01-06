@@ -3,9 +3,10 @@ import { CompanyPortal, User, UserRole, Lesson } from '../types';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Modal } from '../components/Modal';
+import { ActionModal } from '../components/ActionModal';
 import { 
   PlayCircle, CheckCircle, Lock, BookOpen, Users, 
-  LayoutDashboard, LogOut, Settings, Plus, Github, MessageSquare, Edit3, Link as LinkIcon, FileText, Menu, X, Trash2, Edit, Layers
+  LayoutDashboard, LogOut, Settings, Plus, Github, MessageSquare, Edit3, Link as LinkIcon, FileText, Menu, X, Trash2, Edit, Layers, Database
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -52,12 +53,42 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   const [isCreating, setIsCreating] = useState(false); // Creating a new lesson
   const [editForm, setEditForm] = useState<Partial<Lesson>>({});
   
+  // Custom Action Modals
+  const [actionModal, setActionModal] = useState<{ isOpen: boolean; title: string; type: 'PHASE' | 'MODULE'; parentId?: string }>({ isOpen: false, title: '', type: 'PHASE' });
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; title: string; onConfirm: () => void }>({ isOpen: false, title: '', onConfirm: () => {} });
+
   // Config Modal State
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [configForm, setConfigForm] = useState({ name: company.name, themeColor: company.themeColor });
 
   const isMaster = currentUser.role === UserRole.MASTER;
   const primaryColor = company.themeColor;
+
+  // --- SYNCHRONIZATION LOGIC ---
+  // This ensures that if the company data changes (e.g. toggle complete), the modal updates immediately
+  useEffect(() => {
+    if (selectedLesson) {
+       // Search for the currently selected lesson in the updated company data
+       let foundLesson: Lesson | undefined;
+       for (const phase of company.phases) {
+         for (const module of phase.modules) {
+           const match = module.lessons.find(l => l.id === selectedLesson.id);
+           if (match) {
+             foundLesson = match;
+             break;
+           }
+         }
+         if (foundLesson) break;
+       }
+
+       if (foundLesson) {
+         // Only update if there are changes to avoid loops, but specifically check 'completed'
+         if (foundLesson.completed !== selectedLesson.completed || foundLesson.title !== selectedLesson.title || foundLesson.description !== selectedLesson.description) {
+            setSelectedLesson(foundLesson);
+         }
+       }
+    }
+  }, [company, selectedLesson]);
 
   // Safety check: if activePhase is out of bounds (e.g. after deletion), reset to 0
   useEffect(() => {
@@ -80,12 +111,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
   // --- Handlers ---
 
   const handleAddPhaseClick = () => {
-    const title = prompt('Nombre de la nueva fase (Ej: Fase 2: Avanzado):');
-    if(title && title.trim().length > 0) {
-        onAddPhase(company.id, title);
-        // Automatically select the new phase (optional, but good UX)
-        // logic handled by react update, user can click.
-    }
+    setActionModal({ isOpen: true, title: 'Nueva Fase', type: 'PHASE' });
   };
 
   const handleAddModuleClick = () => {
@@ -93,25 +119,35 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
         alert("Primero debes crear o seleccionar una Fase.");
         return;
     }
-    const title = prompt(`Nombre del nuevo módulo para "${currentPhase.title}" (Ej: Semana 1):`);
-    if(title && title.trim().length > 0) {
-        onAddModule(company.id, currentPhase.id, title);
+    setActionModal({ isOpen: true, title: `Nuevo Módulo en ${currentPhase.title}`, type: 'MODULE', parentId: currentPhase.id });
+  };
+
+  const handleActionSubmit = (value: string) => {
+    if (actionModal.type === 'PHASE') {
+      onAddPhase(company.id, value);
+    } else if (actionModal.type === 'MODULE' && actionModal.parentId) {
+      onAddModule(company.id, actionModal.parentId, value);
     }
+    setActionModal({ ...actionModal, isOpen: false });
   };
 
   const handleDeletePhaseClick = (e: React.MouseEvent, phaseId: string) => {
     e.stopPropagation();
-    if(window.confirm('¿Estás seguro de eliminar esta fase y todo su contenido?')) {
-      onDeletePhase(company.id, phaseId);
-    }
+    setDeleteConfirm({
+      isOpen: true,
+      title: '¿Eliminar Fase y todo su contenido?',
+      onConfirm: () => onDeletePhase(company.id, phaseId)
+    });
   };
 
   const handleDeleteModuleClick = (e: React.MouseEvent, moduleId: string) => {
     e.stopPropagation();
-    if(window.confirm('¿Eliminar este módulo y sus clases?')) {
-      if (currentPhase) {
-        onDeleteModule(company.id, currentPhase.id, moduleId);
-      }
+    if (currentPhase) {
+      setDeleteConfirm({
+        isOpen: true,
+        title: '¿Eliminar Módulo y sus clases?',
+        onConfirm: () => onDeleteModule(company.id, currentPhase.id, moduleId)
+      });
     }
   };
 
@@ -170,6 +206,15 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
         setSelectedLesson(null);
       }
     }
+  };
+
+  const handleToggleCompleteWrapper = () => {
+     if(currentPhase && currentModule && selectedLesson) {
+        onToggleComplete(company.id, currentPhase.id, currentModule.id, selectedLesson.id);
+        // Note: We do NOT manually update selectedLesson here. 
+        // We rely on the useEffect above to catch the change from the parent 'company' prop.
+        // This ensures the "Database" is the single source of truth.
+     }
   };
 
   const handleSaveConfig = () => {
@@ -249,15 +294,15 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
           
           {isMaster && (
             <div className="flex flex-wrap gap-2 w-full md:w-auto">
+              <Button variant="secondary" onClick={onBackToMaster} className="text-xs md:text-sm bg-slate-800/50 border-slate-700 hover:bg-slate-800">
+                 <Database size={14} className="mr-2 text-emerald-500" /> Base de Datos Master
+              </Button>
               <Button 
                 variant="secondary" 
                 onClick={() => { setConfigForm({ name: company.name, themeColor: company.themeColor }); setShowConfigModal(true); }}
                 className="text-xs md:text-sm"
               >
                  <Settings size={14} className="mr-2" /> Configurar Portal
-              </Button>
-              <Button variant="secondary" onClick={onBackToMaster} className="text-xs md:text-sm">
-                 Volver a Master
               </Button>
             </div>
           )}
@@ -361,7 +406,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                       </div>
                     </div>
                     {lesson.completed && (
-                      <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 shadow-lg">
+                      <div className="absolute top-2 right-2 bg-emerald-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1 shadow-lg animate-fade-in">
                         <CheckCircle size={12} /> Visto
                       </div>
                     )}
@@ -462,8 +507,12 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                 <span className="text-xl font-bold text-white">{company.users.filter(u => u.role === UserRole.STUDENT).length}</span>
               </div>
               <div className="flex justify-between items-center p-3 bg-slate-950/50 rounded-lg">
-                <span className="text-slate-400 text-sm">Tasa de Completitud</span>
-                <span className="text-xl font-bold text-emerald-400">45%</span>
+                <span className="text-slate-400 text-sm">Tasa de Completitud Promedio</span>
+                <span className="text-xl font-bold text-emerald-400">
+                   {company.users.length > 0 
+                     ? Math.round(company.users.reduce((acc, u) => acc + (u.progress || 0), 0) / company.users.length) 
+                     : 0}%
+                </span>
               </div>
             </div>
           </Card>
@@ -677,12 +726,7 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
                             fullWidth 
                             variant={selectedLesson.completed ? 'ghost' : 'primary'}
                             className={selectedLesson.completed ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : ''}
-                            onClick={() => {
-                              if(currentPhase && currentModule) {
-                                onToggleComplete(company.id, currentPhase.id, currentModule.id, selectedLesson.id);
-                                setSelectedLesson({...selectedLesson, completed: !selectedLesson.completed});
-                              }
-                            }}
+                            onClick={handleToggleCompleteWrapper}
                          >
                             {selectedLesson.completed ? <><CheckCircle size={18} /> Completada</> : "Marcar como Vista"}
                          </Button>
@@ -737,6 +781,29 @@ export const CompanyPortalView: React.FC<CompanyPortalProps> = ({
             <div className="pt-4 flex gap-3">
                <Button variant="secondary" fullWidth onClick={() => setShowConfigModal(false)}>Cancelar</Button>
                <Button fullWidth onClick={handleSaveConfig}>Guardar</Button>
+            </div>
+         </div>
+      </Modal>
+
+      {/* Action Modal (Prompt replacement) */}
+      <ActionModal 
+         isOpen={actionModal.isOpen} 
+         onClose={() => setActionModal({ ...actionModal, isOpen: false })} 
+         title={actionModal.title}
+         onSubmit={handleActionSubmit}
+         placeholder={actionModal.type === 'PHASE' ? 'Ej: Fase 3: Expertos' : 'Ej: Semana 1: Fundamentos'}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <Modal isOpen={deleteConfirm.isOpen} onClose={() => setDeleteConfirm({...deleteConfirm, isOpen: false})} title="Confirmar Eliminación" maxWidth="max-w-sm">
+         <div className="space-y-4">
+            <p className="text-slate-300">
+               {deleteConfirm.title} <br/>
+               <span className="text-xs text-red-400">Esta acción no se puede deshacer.</span>
+            </p>
+            <div className="flex gap-3 justify-end">
+               <Button variant="secondary" onClick={() => setDeleteConfirm({...deleteConfirm, isOpen: false})}>Cancelar</Button>
+               <Button variant="danger" onClick={() => { deleteConfirm.onConfirm(); setDeleteConfirm({...deleteConfirm, isOpen: false}); }}>Eliminar</Button>
             </div>
          </div>
       </Modal>
