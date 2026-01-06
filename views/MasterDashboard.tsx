@@ -47,7 +47,8 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
 
   // Add User State
   const [showUserModal, setShowUserModal] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', role: 'STUDENT', companyId: '' });
+  // Fix: Added email to initial state to support User interface requirements
+  const [newUser, setNewUser] = useState({ name: '', email: '', role: 'STUDENT', companyId: '' });
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,10 +71,12 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
   };
 
   const handleAddUserSubmit = () => {
-     if(!newUser.name || !newUser.companyId) return;
+     // Fix: Added validation for email
+     if(!newUser.name || !newUser.companyId || !newUser.email) return;
      const user: User = {
        id: `u-${Date.now()}`,
        name: newUser.name,
+       email: newUser.email, // Fix: Added email property
        role: newUser.role as UserRole,
        companyId: newUser.companyId,
        progress: 0,
@@ -82,7 +85,8 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
      };
      onAddUser(newUser.companyId, user);
      setShowUserModal(false);
-     setNewUser({ name: '', role: 'STUDENT', companyId: '' });
+     // Fix: Reset email state
+     setNewUser({ name: '', email: '', role: 'STUDENT', companyId: '' });
   };
 
   // --- SUB-VIEWS ---
@@ -494,6 +498,16 @@ export const MasterDashboard: React.FC<MasterDashboardProps> = ({
                   type="text" 
                   value={newUser.name}
                   onChange={e => setNewUser({...newUser, name: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white"
+               />
+            </div>
+            {/* Fix: Added Email Input */}
+            <div>
+               <label className="block text-sm font-medium text-slate-400 mb-1">Email</label>
+               <input 
+                  type="email" 
+                  value={newUser.email}
+                  onChange={e => setNewUser({...newUser, email: e.target.value})}
                   className="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-white"
                />
             </div>

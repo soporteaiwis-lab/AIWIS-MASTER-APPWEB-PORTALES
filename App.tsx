@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CompanyPortal, User, UserRole, AppState, Lesson, Phase, WeekModule, ForumPost } from './types';
+import { CompanyPortal, User, UserRole, AppState, Lesson, Phase, WeekModule, ForumPost, StudyResource } from './types';
 import { INITIAL_COMPANIES, MASTER_USER } from './services/data';
 import { LoginView } from './views/LoginView';
 import { MasterDashboard } from './views/MasterDashboard';
@@ -14,50 +14,39 @@ const App: React.FC = () => {
   });
 
   // Handle Login Logic
-  const handleLogin = (u: string, p: string, isMaster: boolean, companySlug?: string) => {
-    if (p !== '1234') {
-       alert('Contraseña incorrecta. (Use 1234)');
-       return;
-    }
-
+  const handleLogin = (email: string, pass: string, isMaster: boolean, companySlug?: string) => {
+    
     if (isMaster) {
-      if (u.toLowerCase() === 'aiwis') {
+      if (email.toLowerCase() === 'armin@aiwis.cl' && pass === '123') { // Simplified check
         setAppState({
           currentUser: MASTER_USER,
           currentView: 'MASTER_DASHBOARD',
           selectedCompanyId: null
         });
+        return;
       } else {
-        alert('Usuario Master incorrecto (Prueba aiwis)');
-      }
-    } else {
-      const company = companies.find(c => c.slug === companySlug);
-      if (!company) {
-        alert('Seleccione una empresa válida');
+        alert('Credenciales Master incorrectas');
         return;
       }
-      
-      const foundUser = company.users.find(user => user.name.toLowerCase().includes(u.toLowerCase()));
-      const userToLogin = foundUser || {
-        id: `temp-${Date.now()}`,
-        name: u || 'Usuario Demo',
-        role: UserRole.STUDENT,
-        companyId: company.id,
-        progress: 0,
-        skills: { prompting: 50, analysis: 50, tools: 50, strategy: 50 }
-      };
-
-      if (!foundUser) {
-        setCompanies(prev => prev.map(c => 
-          c.id === company.id ? { ...c, users: [...c.users, userToLogin] } : c
-        ));
+    } else {
+      // Client Login
+      const company = companies.find(c => c.slug === companySlug);
+      if (!company) {
+        alert('Empresa no encontrada');
+        return;
       }
 
-      setAppState({
-        currentUser: userToLogin,
-        currentView: 'COMPANY_PORTAL',
-        selectedCompanyId: company.id
-      });
+      const foundUser = company.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.password === pass);
+      
+      if (foundUser) {
+        setAppState({
+          currentUser: foundUser,
+          currentView: 'COMPANY_PORTAL',
+          selectedCompanyId: company.id
+        });
+      } else {
+        alert('Email o contraseña incorrectos para este portal.');
+      }
     }
   };
 
@@ -73,6 +62,7 @@ const App: React.FC = () => {
       phases: [],
       users: [],
       posts: [],
+      resources: [],
       skillLabels: { prompting: 'Prompting', analysis: 'Análisis', tools: 'Herramientas', strategy: 'Estrategia' }
     };
     setCompanies([...companies, newCompany]);
@@ -81,7 +71,6 @@ const App: React.FC = () => {
   const handleUpdateCompanyRaw = (companyId: string, rawJson: string) => {
     try {
       const parsed = JSON.parse(rawJson);
-      // Basic validation
       if (!parsed.id || !parsed.name) throw new Error("JSON Inválido: Falta ID o Nombre");
       setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, ...parsed } : c));
       return true;
@@ -192,8 +181,6 @@ const App: React.FC = () => {
     setCompanies(prev => {
       return prev.map(c => {
         if (c.id !== companyId) return c;
-        
-        // 1. Toggle Lesson Status locally
         const updatedPhases = c.phases.map(p => {
           if (p.id !== phaseId) return p;
           return {
@@ -210,52 +197,39 @@ const App: React.FC = () => {
             })
           };
         });
-
-        // 2. Recalculate Progress (Simple logic: total completed / total lessons)
+        
+        // Progress Calc
         let totalLessons = 0;
         let completedLessons = 0;
-        
-        updatedPhases.forEach(p => {
-          p.modules.forEach(m => {
-            m.lessons.forEach(l => {
-              totalLessons++;
-              if (l.completed) completedLessons++;
-            });
-          });
-        });
-
+        updatedPhases.forEach(p => p.modules.forEach(m => m.lessons.forEach(l => {
+          totalLessons++;
+          if (l.completed) completedLessons++;
+        })));
         const newProgressPercent = totalLessons === 0 ? 0 : Math.round((completedLessons / totalLessons) * 100);
         
-        const updatedUsers = c.users.map(u => ({
-          ...u,
-          progress: newProgressPercent
-        }));
+        const updatedUsers = c.users.map(u => ({ ...u, progress: newProgressPercent }));
 
-        return {
-          ...c,
-          phases: updatedPhases,
-          users: updatedUsers
-        };
+        return { ...c, phases: updatedPhases, users: updatedUsers };
       });
     });
   };
 
   const handleAddPost = (companyId: string, post: ForumPost) => {
-    setCompanies(prev => prev.map(c => 
-      c.id === companyId 
-        ? { ...c, posts: [post, ...c.posts] }
-        : c
-    ));
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, posts: [post, ...c.posts] } : c));
+  };
+  
+  const handleAddResource = (companyId: string, resource: StudyResource) => {
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, resources: [...c.resources, resource] } : c));
+  };
+
+  const handleDeleteResource = (companyId: string, resourceId: string) => {
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, resources: c.resources.filter(r => r.id !== resourceId) } : c));
   };
 
   // --- HIERARCHY MANAGEMENT ---
 
   const handleAddPhase = (companyId: string, title: string) => {
-    const newPhase: Phase = {
-      id: `p-${Date.now()}`,
-      title,
-      modules: []
-    };
+    const newPhase: Phase = { id: `p-${Date.now()}`, title, modules: [] };
     setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, phases: [...c.phases, newPhase] } : c));
   };
 
@@ -264,18 +238,11 @@ const App: React.FC = () => {
   };
 
   const handleUpdatePhase = (companyId: string, phaseId: string, title: string) => {
-    setCompanies(prev => prev.map(c => c.id === companyId ? { 
-        ...c, 
-        phases: c.phases.map(p => p.id === phaseId ? { ...p, title } : p)
-    } : c));
+    setCompanies(prev => prev.map(c => c.id === companyId ? { ...c, phases: c.phases.map(p => p.id === phaseId ? { ...p, title } : p) } : c));
   };
 
   const handleAddModule = (companyId: string, phaseId: string, title: string) => {
-    const newModule: WeekModule = {
-      id: `m-${Date.now()}`,
-      title,
-      lessons: []
-    };
+    const newModule: WeekModule = { id: `m-${Date.now()}`, title, lessons: [] };
     setCompanies(prev => prev.map(c => {
       if (c.id !== companyId) return c;
       return {
@@ -301,8 +268,7 @@ const App: React.FC = () => {
       return {
         ...c,
         phases: c.phases.map(p => p.id === phaseId ? {
-             ...p, 
-             modules: p.modules.map(m => m.id === moduleId ? { ...m, title } : m)
+             ...p, modules: p.modules.map(m => m.id === moduleId ? { ...m, title } : m)
         } : p)
       };
     }));
@@ -383,7 +349,6 @@ const App: React.FC = () => {
         onCreateLesson={handleCreateLesson}
         onDeleteLesson={handleDeleteLesson}
         onToggleComplete={handleToggleComplete}
-        // Hierarchy Props
         onAddPhase={handleAddPhase}
         onDeletePhase={handleDeletePhase}
         onAddModule={handleAddModule}
@@ -393,6 +358,8 @@ const App: React.FC = () => {
         onAddUser={handleAddUser}
         onUpdateUser={handleUpdateUser}
         onDeleteUser={handleDeleteUser}
+        onAddResource={handleAddResource}
+        onDeleteResource={handleDeleteResource}
       />
     );
   }

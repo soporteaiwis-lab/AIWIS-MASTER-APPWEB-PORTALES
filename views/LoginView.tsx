@@ -1,26 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { UserRole } from '../types';
 import { Button } from '../components/Button';
-import { Lock, Building2, UserCircle } from 'lucide-react';
+import { Lock, Building2, Mail } from 'lucide-react';
 
 interface LoginViewProps {
-  onLogin: (username: string, pass: string, isMaster: boolean, companySlug?: string) => void;
+  onLogin: (email: string, pass: string, isMaster: boolean, companySlug?: string) => void;
   companies: { id: string; name: string; slug: string }[];
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLogin, companies }) => {
   const [activeTab, setActiveTab] = useState<'master' | 'client'>('master');
-  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedCompany, setSelectedCompany] = useState('');
 
-  // Pre-fill credentials for convenience when switching tabs
   useEffect(() => {
     if (activeTab === 'master') {
-      setUsername('aiwis');
-      setPassword('1234');
+      setEmail('armin@aiwis.cl');
+      setPassword('123');
     } else {
-      setUsername('');
+      setEmail('');
       setPassword('');
     }
   }, [activeTab]);
@@ -28,26 +26,29 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, companies }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (activeTab === 'master') {
-      onLogin(username, password, true);
+      onLogin(email, password, true);
     } else {
-      onLogin(username, password, false, selectedCompany);
+      onLogin(email, password, false, selectedCompany);
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Ambience */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/20 rounded-full blur-[120px]"></div>
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 rounded-full blur-[150px]"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-purple-600/20 rounded-full blur-[150px]"></div>
       </div>
 
-      <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 p-8 rounded-2xl w-full max-w-md shadow-2xl z-10">
+      <div className="bg-slate-900/90 backdrop-blur-xl border border-slate-800 p-8 rounded-2xl w-full max-w-md shadow-2xl z-10">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+          <div className="inline-block p-3 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-4 shadow-lg shadow-indigo-500/30">
+             <span className="text-2xl font-bold text-white">AI</span>
+          </div>
+          <h1 className="text-3xl font-bold text-white">
             AIWIS Portal
           </h1>
-          <p className="text-slate-400 mt-2 text-sm">Plataforma de Adopción IA Corporativa</p>
+          <p className="text-slate-400 mt-2 text-sm">Plataforma de Capacitación Corporativa</p>
         </div>
 
         <div className="flex bg-slate-800 p-1 rounded-lg mb-6">
@@ -91,14 +92,14 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, companies }) => {
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Usuario</label>
+            <label className="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wider">Email Corporativo</label>
             <div className="relative">
-              <UserCircle className="absolute left-3 top-2.5 h-5 w-5 text-slate-500" />
+              <Mail className="absolute left-3 top-2.5 h-5 w-5 text-slate-500" />
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder={activeTab === 'master' ? "aiwis" : "Tu usuario"}
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nombre@empresa.com"
                 className="w-full bg-slate-950 border border-slate-700 rounded-lg py-2.5 pl-10 pr-4 text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 placeholder-slate-600"
                 required
               />
@@ -120,13 +121,13 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin, companies }) => {
             </div>
           </div>
 
-          <Button fullWidth type="submit" className="mt-4">
-            {activeTab === 'master' ? 'Ingresar como Master' : 'Ingresar al Portal'}
+          <Button fullWidth type="submit" className="mt-4 py-3 text-sm font-bold tracking-wide">
+            {activeTab === 'master' ? 'Ingresar al Dashboard' : 'Acceder al Portal'}
           </Button>
         </form>
 
-        <div className="mt-6 text-center text-xs text-slate-500">
-          Desarrollado por AIWIS Technology &copy; 2026
+        <div className="mt-6 text-center text-xs text-slate-600">
+          ¿Problemas de acceso? Contacta a soporte@aiwis.cl
         </div>
       </div>
     </div>
